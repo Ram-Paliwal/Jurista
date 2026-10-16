@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jurista — AI Indian Legal Assistant & Document Explainer</title>
+  <meta name="description" content="Accessible, grounded Indian legal information and PDF document explainer. Verified statutory sources, allegation distinction, and multilingual support.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- App Container -->
+  <div class="app-layout">
+    
+    <!-- Top Navigation Bar -->
+    <header class="app-header">
+      <div class="brand-group">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+            <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+            <path d="M7 21h10"/>
+            <path d="M12 3v18"/>
+            <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">Jurista</h1>
+          <span class="brand-badge">India Law AI</span>
+        </div>
+      </div>
+
+      <!-- Scope Notice Banner -->
+      <div class="header-disclaimer">
+        <span class="pulse-dot"></span>
+        <span>Information only &bull; India Code & NALSA grounded &bull; Non-lawyer assistant</span>
+      </div>
+
+      <!-- Controls -->
+      <div class="header-controls">
+        <!-- Language Selector -->
+        <div class="lang-selector-wrapper">
+          <label for="lang-select" class="control-label">
+            <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+              <path d="M2 12h20"/>
+            </svg>
+            <span class="lang-text">Language</span>
+          </label>
+          <select id="lang-select" class="select-input" aria-label="Select consultation language">
+            <option value="English">English</option>
+            <option value="Hindi">हिंदी (Hindi)</option>
+            <option value="Marathi">मराठी (Marathi)</option>
+          </select>
+        </div>
+
+        <!-- Reset Session Button -->
+        <button id="btn-new-session" class="btn btn-secondary" title="Start a fresh conversation and clear current document">
+          <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+            <path d="M8 16H3v5"/>
+          </svg>
+          <span>New Session</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace (Split View) -->
+    <main class="app-main">
+      
+      <!-- Left Sidebar: Document Studio & Legal Sources -->
+      <aside class="sidebar-panel">
+        
+        <!-- Active Document Card -->
+        <div class="card doc-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <svg class="icon-medium text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+              <h3>PDF Document Explainer</h3>
+            </div>
+            <span id="doc-status-badge" class="badge badge-neutral">No PDF</span>
+          </div>
+
+          <!-- Upload Dropzone -->
+          <div id="dropzone" class="dropzone">
+            <input type="file" id="file-input" accept="application/pdf" class="file-input-hidden">
+            <div class="dropzone-content">
+              <div class="upload-icon-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </div>
+              <p class="dropzone-text"><strong>Drag & drop legal PDF</strong> or browse</p>
+              <p class="dropzone-sub">Notices, FIRs, Rent Agreements, Orders (Max 15 MB)</p>
+            </div>
+            <!-- Uploading spinner -->
+            <div id="upload-loader" class="upload-loader hidden">
+              <div class="spinner"></div>
+              <p class="loader-text">Extracting with PyMuPDF & Analyzing...</p>
+            </div>
+          </div>
+
+          <!-- Active Document Details -->
+          <div id="active-doc-details" class="active-doc-details hidden">
+            <div class="doc-meta-row">
+              <span class="doc-name" id="doc-filename">notice.pdf</span>
+              <button id="btn-remove-doc" class="btn-icon" title="Remove Document">&times;</button>
+            </div>
+            <div class="doc-stats">
+              <span id="doc-pages" class="stat-tag">0 Pages</span>
+              <span id="doc-chars" class="stat-tag">0 Chars</span>
+              <span id="doc-chunks" class="stat-tag">0 RAG Chunks</span>
+            </div>
+            <div id="scanned-warning" class="alert-box alert-warning hidden">
+              <strong>Notice:</strong> Scanned image-only PDF detected with little selectable text. OCR recommended.
+            </div>
+            <button id="btn-re-explain" class="btn btn-primary btn-sm btn-full mt-2">
+              Explain Document Again
+            </button>
+          </div>
+        </div>
+
+        <!-- Curated Indian Legal Authority Sources Card -->
+        <div class="card sources-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <svg class="icon-medium text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+                <path d="M6 6h10"/>
+                <path d="M6 10h10"/>
+              </svg>
+              <h3>Official Indian Sources</h3>
+            </div>
+          </div>
+          <p class="sources-intro">All legal assertions cite verified authorities:</p>
+          <ul class="official-links-list">
+            <li>
+              <a href="https://www.indiacode.nic.in" target="_blank" rel="noopener">
+                <span class="source-tag">Statutes</span>
+                <span class="source-title">India Code (Central Acts)</span>
+                <span class="source-url">indiacode.nic.in &nearr;</span>
+              </a>
+            </li>
+            <li>
+              <a href="https://services.ecourts.gov.in" target="_blank" rel="noopener">
+                <span class="source-tag">eCourts</span>
+                <span class="source-title">eCourts CNR Tracking</span>
+                <span class="source-url">services.ecourts.gov.in &nearr;</span>
+              </a>
+            </li>
+            <li>
+              <a href="https://nalsa.gov.in" target="_blank" rel="noopener">
+                <span class="source-tag">Free Aid</span>
+                <span class="source-title">NALSA / DLSA (Dial 15100)</span>
+                <span class="source-url">nalsa.gov.in &nearr;</span>
+              </a>
+            </li>
+            <li>
+              <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">
+                <span class="source-tag">Cyber</span>
+                <span class="source-title">Cyber Crime Portal (1930)</span>
+                <span class="source-url">cybercrime.gov.in &nearr;</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+      </aside>
+
+      <!-- Right Panel: Conversation Stream & Input -->
+      <section class="chat-panel">
+        
+        <!-- Chat History Stream -->
+        <div id="chat-messages" class="chat-messages">
+          <!-- Initial Welcome Card -->
+          <div class="message-card message-jurista intro-message">
+            <div class="message-avatar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                <path d="M7 21h10"/>
+                <path d="M12 3v18"/>
+              </svg>
+            </div>
+            <div class="message-body">
+              <div class="message-header-row">
+                <span class="sender-name">Jurista</span>
+                <span class="message-time">Just now</span>
+              </div>
+              <div class="message-text">
+                <p>Welcome! I am <strong>Jurista</strong>, your AI companion for Indian law and legal document review.</p>
+                <p>You can ask questions about your legal rights and procedures, or upload a legal PDF (such as a notice, agreement, or FIR) for an objective breakdown.</p>
+                <div class="rules-highlight">
+                  <div class="rule-item">⚖️ <strong>Grounded in Indian Law:</strong> Strictly verified against India Code, BNS/IPC, BNSS/CrPC, and special acts.</div>
+                  <div class="rule-item">⚠️ <strong>Allegations vs Facts:</strong> A document's claims are never treated as proven facts.</div>
+                  <div class="rule-item">🌐 <strong>Multilingual:</strong> Chat in English, Hindi (हिंदी), or Marathi (मराठी) without losing context.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Topic Chips -->
+        <div class="quick-chips-wrapper">
+          <span class="chips-label">Try asking:</span>
+          <div class="chips-scroller">
+            <button class="chip-btn" data-query="I received a legal notice under Section 138 of the Negotiable Instruments Act for a bounced cheque. What are my rights and deadline to respond?">
+              Cheque Bounce (S. 138 NI Act)
+            </button>
+            <button class="chip-btn" data-query="My landlord sent me an informal 7-day eviction notice over WhatsApp and threatens to cut electricity. Is this legal under Indian law?">
+              Tenant Eviction Rights (TPA S. 106)
+            </button>
+            <button class="chip-btn" data-query="The local police station refused to register my FIR for a mobile phone theft. What legal steps can I take under BNSS / CrPC?">
+              Police Refusal to File FIR
+            </button>
+            <button class="chip-btn" data-query="I ordered an expensive laptop online and received a stone. The seller refused a refund. How do I file on e-Daakhil?">
+              Consumer Complaint (e-Daakhil)
+            </button>
+            <button class="chip-btn" data-query="How does someone apply for free legal aid through NALSA or DLSA in India?">
+              Free Legal Aid (NALSA 15100)
+            </button>
+          </div>
+        </div>
+
+        <!-- Message Input Area -->
+        <div class="chat-input-container">
+          <form id="chat-form" class="chat-form">
+            <textarea
+              id="user-input"
+              class="chat-textarea"
+              placeholder="Ask an Indian legal question or follow up on your document... (Shift+Enter for new line)"
+              rows="1"
+              required
+            ></textarea>
+
+            <div class="chat-form-actions">
+              <button type="button" id="btn-attach" class="btn-icon-secondary" title="Attach PDF Document">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                </svg>
+              </button>
+
+              <button type="submit" id="btn-send" class="btn btn-primary" title="Send message">
+                <span>Send</span>
+                <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </div>
+          </form>
+          <div class="input-footer">
+            <span>Jurista provides informational guidance only and is not a substitute for an advocate's advice.</span>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
