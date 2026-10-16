@@ -44,7 +44,10 @@ Navigating the Indian legal system is daunting for everyday citizens due to dens
 - ⚡ **Zero-Cost Heuristic Pre-Filter**: Instant regex pre-check rejects non-legal prompts (coding, cooking, math, entertainment) with zero latency and zero LLM cost.
 - 🔄 **Resilient Multi-Model Failover**: Automatically recovers from model deprecations and high-demand spikes (HTTP 503) through a priority chain (`gemini-3.5-flash` ➔ `gemini-3.5-flash-lite` ➔ `gemini-3.6-flash` ➔ `gemma-4-31b-it`).
 - 🌐 **Multilingual with Context Retention**: Seamlessly switch between **English**, **Hindi (हिंदी)**, and **Marathi (मराठी)** without resetting the chat history or losing the uploaded document context.
-- 🔊 **Voice Accessibility (Text-to-Speech)**: Integrated browser Web Speech API enables audio playback of explanations for improved accessibility.
+- 🔊 **Voice Accessibility (Text-to-Speech & Speech-to-Text)**: Integrated browser Web Speech API enables speech recognition and voice playback across English, Hindi, and Marathi.
+- 🗺️ **Interactive Community Experiences Map**: Powered by **Leaflet.js** and **OpenStreetMap** (zero Google Maps API keys). Visualizes citizen allegations and consumer disputes with dynamic marker clustering, synchronized feed view, and custom locality filtering.
+- 📍 **Privacy-Preserving Locality Picker**: Allows users to select an approximate city or neighborhood without requiring precision GPS or exposing personal residential addresses.
+- 🔒 **Private Session Evidence Vault**: Strictly isolated personal vault for demand notices, payment receipts, and notes, guaranteed never to appear on the public community map.
 - 💾 **Isolated SQLite Sessions**: Complete thread-safe session isolation (`jurista_sessions.db`) keeping each user's document chunks and multi-turn context private.
 
 ---

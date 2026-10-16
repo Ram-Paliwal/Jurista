@@ -3,11 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jurista — AI Indian Legal Assistant & Document Explainer</title>
-  <meta name="description" content="Accessible, grounded Indian legal information and PDF document explainer. Verified statutory sources, allegation distinction, and multilingual support.">
+  <title>Jurista — AI Indian Legal Assistant & Community Experiences</title>
+  <meta name="description" content="Accessible, grounded Indian legal information, PDF explainer, interactive community experience map, and private evidence vault.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet & MarkerCluster CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+  
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -32,10 +38,39 @@
         </div>
       </div>
 
+      <!-- App Main Navigation Tabs -->
+      <nav class="main-nav-tabs" aria-label="Primary navigation">
+        <button id="nav-btn-chat" class="nav-tab-btn active" data-target="view-chat">
+          <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span>Legal Assistant & PDF</span>
+        </button>
+
+        <button id="nav-btn-community" class="nav-tab-btn" data-target="view-community">
+          <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+            <line x1="8" y1="2" x2="8" y2="18"/>
+            <line x1="16" y1="6" x2="16" y2="22"/>
+          </svg>
+          <span>Community Map & Feed</span>
+          <span class="tab-badge-live">Live</span>
+        </button>
+
+        <button id="nav-btn-vault" class="nav-tab-btn" data-target="view-vault">
+          <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <span>Evidence Vault</span>
+          <span class="tab-badge-private">Private</span>
+        </button>
+      </nav>
+
       <!-- Scope Notice Banner -->
       <div class="header-disclaimer">
         <span class="pulse-dot"></span>
-        <span>Information only &bull; India Code & NALSA grounded &bull; Non-lawyer assistant</span>
+        <span>Information only &bull; India Code & NALSA grounded</span>
       </div>
 
       <!-- Controls -->
@@ -70,226 +105,760 @@
       </div>
     </header>
 
-    <!-- Main Workspace (Split View) -->
-    <main class="app-main">
-      
-      <!-- Left Sidebar: Document Studio & Legal Sources -->
-      <aside class="sidebar-panel">
+    <!-- VIEW 1: Legal Chatbot & PDF Explainer (Existing core feature) -->
+    <div id="view-chat" class="app-view active">
+      <main class="app-main">
         
-        <!-- Active Document Card -->
-        <div class="card doc-card">
-          <div class="card-header">
-            <div class="card-title-group">
-              <svg class="icon-medium text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-                <polyline points="10 9 9 9 8 9"/>
-              </svg>
-              <h3>PDF Document Explainer</h3>
+        <!-- Left Sidebar: Document Studio & Legal Sources -->
+        <aside class="sidebar-panel">
+          
+          <!-- Active Document Card -->
+          <div class="card doc-card">
+            <div class="card-header">
+              <div class="card-title-group">
+                <svg class="icon-medium text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                <h3>PDF Document Explainer</h3>
+              </div>
+              <span id="doc-status-badge" class="badge badge-neutral">No PDF</span>
             </div>
-            <span id="doc-status-badge" class="badge badge-neutral">No PDF</span>
+
+            <!-- Upload Dropzone -->
+            <div id="dropzone" class="dropzone">
+              <input type="file" id="file-input" accept="application/pdf" class="file-input-hidden">
+              <div class="dropzone-content">
+                <div class="upload-icon-wrapper">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </div>
+                <p class="dropzone-text"><strong>Drag & drop legal PDF</strong> or browse</p>
+                <p class="dropzone-sub">Notices, FIRs, Rent Agreements, Orders (Max 15 MB)</p>
+              </div>
+              <!-- Uploading spinner -->
+              <div id="upload-loader" class="upload-loader hidden">
+                <div class="spinner"></div>
+                <p class="loader-text">Extracting with PyMuPDF & Analyzing...</p>
+              </div>
+            </div>
+
+            <!-- Active Document Details -->
+            <div id="active-doc-details" class="active-doc-details hidden">
+              <div class="doc-meta-row">
+                <span class="doc-name" id="doc-filename">notice.pdf</span>
+                <button id="btn-remove-doc" class="btn-icon" title="Remove Document">&times;</button>
+              </div>
+              <div class="doc-stats">
+                <span id="doc-pages" class="stat-tag">0 Pages</span>
+                <span id="doc-chars" class="stat-tag">0 Chars</span>
+                <span id="doc-chunks" class="stat-tag">0 RAG Chunks</span>
+              </div>
+              <div id="scanned-warning" class="alert-box alert-warning hidden">
+                <strong>Notice:</strong> Scanned image-only PDF detected with little selectable text. OCR recommended.
+              </div>
+              <button id="btn-re-explain" class="btn btn-primary btn-sm btn-full mt-2">
+                Explain Document Again
+              </button>
+            </div>
           </div>
 
-          <!-- Upload Dropzone -->
-          <div id="dropzone" class="dropzone">
-            <input type="file" id="file-input" accept="application/pdf" class="file-input-hidden">
-            <div class="dropzone-content">
-              <div class="upload-icon-wrapper">
+          <!-- Curated Indian Legal Authority Sources Card -->
+          <div class="card sources-card">
+            <div class="card-header">
+              <div class="card-title-group">
+                <svg class="icon-medium text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+                  <path d="M6 6h10"/>
+                  <path d="M6 10h10"/>
+                </svg>
+                <h3>Official Indian Sources</h3>
+              </div>
+            </div>
+            <p class="sources-intro">All legal assertions cite verified authorities:</p>
+            <ul class="official-links-list">
+              <li>
+                <a href="https://www.indiacode.nic.in" target="_blank" rel="noopener">
+                  <span class="source-tag">Statutes</span>
+                  <span class="source-title">India Code (Central Acts)</span>
+                  <span class="source-url">indiacode.nic.in &nearr;</span>
+                </a>
+              </li>
+              <li>
+                <a href="https://services.ecourts.gov.in" target="_blank" rel="noopener">
+                  <span class="source-tag">eCourts</span>
+                  <span class="source-title">eCourts CNR Tracking</span>
+                  <span class="source-url">services.ecourts.gov.in &nearr;</span>
+                </a>
+              </li>
+              <li>
+                <a href="https://nalsa.gov.in" target="_blank" rel="noopener">
+                  <span class="source-tag">Free Aid</span>
+                  <span class="source-title">NALSA / DLSA (Dial 15100)</span>
+                  <span class="source-url">nalsa.gov.in &nearr;</span>
+                </a>
+              </li>
+              <li>
+                <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">
+                  <span class="source-tag">Cyber</span>
+                  <span class="source-title">Cyber Crime Portal (1930)</span>
+                  <span class="source-url">cybercrime.gov.in &nearr;</span>
+                </a>
+              </li>
+            </ul>
+          </div>
+
+        </aside>
+
+        <!-- Right Panel: Conversation Stream & Input -->
+        <section class="chat-panel">
+          
+          <!-- Chat History Stream -->
+          <div id="chat-messages" class="chat-messages">
+            <!-- Initial Welcome Card -->
+            <div class="message-card message-jurista intro-message">
+              <div class="message-avatar">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="17 8 12 3 7 8"/>
-                  <line x1="12" y1="3" x2="12" y2="15"/>
+                  <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                  <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                  <path d="M7 21h10"/>
+                  <path d="M12 3v18"/>
                 </svg>
               </div>
-              <p class="dropzone-text"><strong>Drag & drop legal PDF</strong> or browse</p>
-              <p class="dropzone-sub">Notices, FIRs, Rent Agreements, Orders (Max 15 MB)</p>
-            </div>
-            <!-- Uploading spinner -->
-            <div id="upload-loader" class="upload-loader hidden">
-              <div class="spinner"></div>
-              <p class="loader-text">Extracting with PyMuPDF & Analyzing...</p>
-            </div>
-          </div>
-
-          <!-- Active Document Details -->
-          <div id="active-doc-details" class="active-doc-details hidden">
-            <div class="doc-meta-row">
-              <span class="doc-name" id="doc-filename">notice.pdf</span>
-              <button id="btn-remove-doc" class="btn-icon" title="Remove Document">&times;</button>
-            </div>
-            <div class="doc-stats">
-              <span id="doc-pages" class="stat-tag">0 Pages</span>
-              <span id="doc-chars" class="stat-tag">0 Chars</span>
-              <span id="doc-chunks" class="stat-tag">0 RAG Chunks</span>
-            </div>
-            <div id="scanned-warning" class="alert-box alert-warning hidden">
-              <strong>Notice:</strong> Scanned image-only PDF detected with little selectable text. OCR recommended.
-            </div>
-            <button id="btn-re-explain" class="btn btn-primary btn-sm btn-full mt-2">
-              Explain Document Again
-            </button>
-          </div>
-        </div>
-
-        <!-- Curated Indian Legal Authority Sources Card -->
-        <div class="card sources-card">
-          <div class="card-header">
-            <div class="card-title-group">
-              <svg class="icon-medium text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
-                <path d="M6 6h10"/>
-                <path d="M6 10h10"/>
-              </svg>
-              <h3>Official Indian Sources</h3>
-            </div>
-          </div>
-          <p class="sources-intro">All legal assertions cite verified authorities:</p>
-          <ul class="official-links-list">
-            <li>
-              <a href="https://www.indiacode.nic.in" target="_blank" rel="noopener">
-                <span class="source-tag">Statutes</span>
-                <span class="source-title">India Code (Central Acts)</span>
-                <span class="source-url">indiacode.nic.in &nearr;</span>
-              </a>
-            </li>
-            <li>
-              <a href="https://services.ecourts.gov.in" target="_blank" rel="noopener">
-                <span class="source-tag">eCourts</span>
-                <span class="source-title">eCourts CNR Tracking</span>
-                <span class="source-url">services.ecourts.gov.in &nearr;</span>
-              </a>
-            </li>
-            <li>
-              <a href="https://nalsa.gov.in" target="_blank" rel="noopener">
-                <span class="source-tag">Free Aid</span>
-                <span class="source-title">NALSA / DLSA (Dial 15100)</span>
-                <span class="source-url">nalsa.gov.in &nearr;</span>
-              </a>
-            </li>
-            <li>
-              <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">
-                <span class="source-tag">Cyber</span>
-                <span class="source-title">Cyber Crime Portal (1930)</span>
-                <span class="source-url">cybercrime.gov.in &nearr;</span>
-              </a>
-            </li>
-          </ul>
-        </div>
-
-      </aside>
-
-      <!-- Right Panel: Conversation Stream & Input -->
-      <section class="chat-panel">
-        
-        <!-- Chat History Stream -->
-        <div id="chat-messages" class="chat-messages">
-          <!-- Initial Welcome Card -->
-          <div class="message-card message-jurista intro-message">
-            <div class="message-avatar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
-                <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
-                <path d="M7 21h10"/>
-                <path d="M12 3v18"/>
-              </svg>
-            </div>
-            <div class="message-body">
-              <div class="message-header-row">
-                <span class="sender-name">Jurista</span>
-                <span class="message-time">Just now</span>
-              </div>
-              <div class="message-text">
-                <p>Welcome! I am <strong>Jurista</strong>, your AI companion for Indian law and legal document review.</p>
-                <p>You can ask questions about your legal rights and procedures, or upload a legal PDF (such as a notice, agreement, or FIR) for an objective breakdown.</p>
-                <div class="rules-highlight">
-                  <div class="rule-item">⚖️ <strong>Grounded in Indian Law:</strong> Strictly verified against India Code, BNS/IPC, BNSS/CrPC, and special acts.</div>
-                  <div class="rule-item">⚠️ <strong>Allegations vs Facts:</strong> A document's claims are never treated as proven facts.</div>
-                  <div class="rule-item">🌐 <strong>Multilingual:</strong> Chat in English, Hindi (हिंदी), or Marathi (मराठी) without losing context.</div>
+              <div class="message-body">
+                <div class="message-header-row">
+                  <span class="sender-name">Jurista</span>
+                  <span class="message-time">Just now</span>
+                </div>
+                <div class="message-text">
+                  <p>Welcome! I am <strong>Jurista</strong>, your AI companion for Indian law and legal document review.</p>
+                  <p>You can ask questions about your legal rights and procedures, or upload a legal PDF (such as a notice, agreement, or FIR) for an objective breakdown.</p>
+                  <div class="rules-highlight">
+                    <div class="rule-item">⚖️ <strong>Grounded in Indian Law:</strong> Strictly verified against India Code, BNS/IPC, BNSS/CrPC, and special acts.</div>
+                    <div class="rule-item">⚠️ <strong>Allegations vs Facts:</strong> A document's claims are never treated as proven facts.</div>
+                    <div class="rule-item">🌐 <strong>Multilingual:</strong> Chat in English, Hindi (हिंदी), or Marathi (मराठी) without losing context.</div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Quick Topic Chips -->
-        <div class="quick-chips-wrapper">
-          <span class="chips-label">Try asking:</span>
-          <div class="chips-scroller">
-            <button class="chip-btn" data-query="I received a legal notice under Section 138 of the Negotiable Instruments Act for a bounced cheque. What are my rights and deadline to respond?">
-              Cheque Bounce (S. 138 NI Act)
-            </button>
-            <button class="chip-btn" data-query="My landlord sent me an informal 7-day eviction notice over WhatsApp and threatens to cut electricity. Is this legal under Indian law?">
-              Tenant Eviction Rights (TPA S. 106)
-            </button>
-            <button class="chip-btn" data-query="The local police station refused to register my FIR for a mobile phone theft. What legal steps can I take under BNSS / CrPC?">
-              Police Refusal to File FIR
-            </button>
-            <button class="chip-btn" data-query="I ordered an expensive laptop online and received a stone. The seller refused a refund. How do I file on e-Daakhil?">
-              Consumer Complaint (e-Daakhil)
-            </button>
-            <button class="chip-btn" data-query="How does someone apply for free legal aid through NALSA or DLSA in India?">
-              Free Legal Aid (NALSA 15100)
-            </button>
-          </div>
-        </div>
-
-        <!-- Message Input Area -->
-        <div class="chat-input-container">
-          <form id="chat-form" class="chat-form">
-            <textarea
-              id="user-input"
-              class="chat-textarea"
-              placeholder="Ask an Indian legal question or follow up on your document... (Shift+Enter for new line)"
-              rows="1"
-              required
-            ></textarea>
-
-            <div class="chat-form-actions">
-              <button type="button" id="btn-attach" class="btn-icon-secondary" title="Attach PDF Document">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                </svg>
+          <!-- Quick Topic Chips -->
+          <div class="quick-chips-wrapper">
+            <span class="chips-label">Try asking:</span>
+            <div class="chips-scroller">
+              <button class="chip-btn" data-query="I received a legal notice under Section 138 of the Negotiable Instruments Act for a bounced cheque. What are my rights and deadline to respond?">
+                Cheque Bounce (S. 138 NI Act)
               </button>
-
-              <button type="button" id="btn-mic" class="btn-icon-secondary" title="Voice Input (Speak in English, Hindi, or Marathi)" aria-label="Voice Input">
-                <svg class="icon-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                  <line x1="12" y1="19" x2="12" y2="22"/>
-                </svg>
+              <button class="chip-btn" data-query="My landlord sent me an informal 7-day eviction notice over WhatsApp and threatens to cut electricity. Is this legal under Indian law?">
+                Tenant Eviction Rights (TPA S. 106)
               </button>
-
-              <button type="submit" id="btn-send" class="btn btn-primary" title="Send message">
-                <span>Send</span>
-                <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="22" y1="2" x2="11" y2="13"/>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
+              <button class="chip-btn" data-query="The local police station refused to register my FIR for a mobile phone theft. What legal steps can I take under BNSS / CrPC?">
+                Police Refusal to File FIR
+              </button>
+              <button class="chip-btn" data-query="I ordered an expensive laptop online and received a stone. The seller refused a refund. How do I file on e-Daakhil?">
+                Consumer Complaint (e-Daakhil)
+              </button>
+              <button class="chip-btn" data-query="How does someone apply for free legal aid through NALSA or DLSA in India?">
+                Free Legal Aid (NALSA 15100)
               </button>
             </div>
-          </form>
-          
-          <!-- Voice Recording Status Indicator -->
-          <div id="voice-indicator" class="voice-indicator hidden">
-            <div class="voice-indicator-content">
-              <span class="voice-pulse-dot"></span>
-              <span id="voice-status-text">Listening... Speak now</span>
-            </div>
-            <button type="button" id="btn-stop-voice" class="btn-voice-stop" title="Stop listening">Stop</button>
           </div>
 
-          <div class="input-footer">
-            <span>Jurista provides informational guidance only and is not a substitute for an advocate's advice.</span>
+          <!-- Message Input Area -->
+          <div class="chat-input-container">
+            <form id="chat-form" class="chat-form">
+              <textarea
+                id="user-input"
+                class="chat-textarea"
+                placeholder="Ask an Indian legal question or follow up on your document... (Shift+Enter for new line)"
+                rows="1"
+                required
+              ></textarea>
+
+              <div class="chat-form-actions">
+                <button type="button" id="btn-attach" class="btn-icon-secondary" title="Attach PDF Document">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                </button>
+
+                <button type="button" id="btn-mic" class="btn-icon-secondary" title="Voice Input (Speak in English, Hindi, or Marathi)" aria-label="Voice Input">
+                  <svg class="icon-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="22"/>
+                  </svg>
+                </button>
+
+                <button type="submit" id="btn-send" class="btn btn-primary" title="Send message">
+                  <span>Send</span>
+                  <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"/>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  </svg>
+                </button>
+              </div>
+            </form>
+            
+            <!-- Voice Recording Status Indicator -->
+            <div id="voice-indicator" class="voice-indicator hidden">
+              <div class="voice-indicator-content">
+                <span class="voice-pulse-dot"></span>
+                <span id="voice-status-text">Listening... Speak now</span>
+              </div>
+              <button type="button" id="btn-stop-voice" class="btn-voice-stop" title="Stop listening">Stop</button>
+            </div>
+
+            <div class="input-footer">
+              <span>Jurista provides informational guidance only and is not a substitute for an advocate's advice.</span>
+            </div>
           </div>
+
+        </section>
+
+      </main>
+    </div>
+
+    <!-- VIEW 2: Community Experiences & Interactive Map -->
+    <div id="view-community" class="app-view hidden">
+      <!-- Community Toolbar with Filters & View Switchers -->
+      <section class="community-toolbar">
+        <div class="community-filters-group">
+          <!-- Keyword Search -->
+          <div class="search-input-wrapper">
+            <svg class="icon-small text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="community-search" class="text-input" placeholder="Search experiences, cities, issues...">
+          </div>
+
+          <!-- Topic Category Filter -->
+          <select id="community-topic-filter" class="select-input" aria-label="Filter reports by legal topic">
+            <option value="All">All Categories</option>
+            <option value="Consumer Dispute">Consumer Dispute</option>
+            <option value="Tenant & Landlord">Tenant & Landlord</option>
+            <option value="Police & FIR">Police & FIR</option>
+            <option value="Cyber Fraud & Scams">Cyber Fraud & Scams</option>
+            <option value="RERA & Property">RERA & Property</option>
+            <option value="Cheque Dishonour">Cheque Dishonour</option>
+            <option value="Labour & Employment">Labour & Employment</option>
+            <option value="Civic & Municipal">Civic & Municipal</option>
+            <option value="Other">Other</option>
+          </select>
+
+          <!-- Date Filter -->
+          <select id="community-date-filter" class="select-input" aria-label="Filter reports by date">
+            <option value="all">All Dates</option>
+            <option value="30">Past 30 Days</option>
+            <option value="90">Past 90 Days</option>
+            <option value="365">Past 1 Year</option>
+          </select>
+
+          <!-- Mapped Only Toggle -->
+          <label class="checkbox-pill" title="Only display reports with an approximate location pin">
+            <input type="checkbox" id="community-has-location-toggle">
+            <span>📍 Mapped Only</span>
+          </label>
         </div>
 
+        <div class="community-actions-group">
+          <!-- View Mode Switcher -->
+          <div class="view-mode-toggle" role="group" aria-label="Layout view mode">
+            <button id="btn-view-split" class="btn-toggle active" title="Split Screen: Feed and Map">
+              <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="12" y1="3" x2="12" y2="21"/>
+              </svg>
+              <span>Split</span>
+            </button>
+            <button id="btn-view-map" class="btn-toggle" title="Full Map View">
+              <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+                <line x1="8" y1="2" x2="8" y2="18"/>
+                <line x1="16" y1="6" x2="16" y2="22"/>
+              </svg>
+              <span>Map</span>
+            </button>
+            <button id="btn-view-feed" class="btn-toggle" title="Full Feed View">
+              <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                <line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+              <span>Feed</span>
+            </button>
+          </div>
+
+          <!-- Share Report CTA -->
+          <button id="btn-open-create-report" class="btn btn-primary" title="Share your legal or consumer experience">
+            <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>Share Experience</span>
+          </button>
+        </div>
       </section>
 
-    </main>
+      <!-- Legal Safety & Allegations Integrity Banner -->
+      <div class="community-integrity-banner">
+        <div class="integrity-badge">
+          <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>Integrity Notice</span>
+        </div>
+        <p>
+          Reports and markers are <strong>user-submitted citizen experiences & allegations</strong>, not verified judicial findings or court orders. Marker clusters indicate incident frequency in a locality and do not prove wrongdoing.
+        </p>
+      </div>
+
+      <!-- Main Split Workspace: Feed & Map -->
+      <div id="community-workspace" class="community-workspace layout-split">
+        
+        <!-- Feed Column (Left) -->
+        <section id="community-feed-column" class="community-feed-column" aria-label="Community reports feed">
+          <div class="feed-header-bar">
+            <div class="feed-count-wrap">
+              <span id="feed-count-badge" class="feed-count">Loading reports...</span>
+            </div>
+            <button id="btn-refresh-reports" class="btn-icon-subtle" title="Refresh reports feed">
+              <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 2v6h-6"/>
+                <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+                <path d="M3 22v-6h6"/>
+                <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Reports List Scrollable Container -->
+          <div id="community-reports-list" class="community-reports-list">
+            <!-- Dynamically populated report cards -->
+          </div>
+
+          <!-- Empty State -->
+          <div id="community-empty-state" class="empty-state-card hidden">
+            <div class="empty-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+            </div>
+            <h4>No Community Experiences Found</h4>
+            <p>No published experiences match your current filters. Try resetting your search filters or be the first to share an incident in this category.</p>
+            <button id="btn-clear-filters" class="btn btn-secondary btn-sm mt-2">Reset All Filters</button>
+          </div>
+        </section>
+
+        <!-- Interactive Map Column (Right) -->
+        <section id="community-map-column" class="community-map-column" aria-label="Interactive incident map">
+          
+          <!-- Leaflet Map Container -->
+          <div id="community-map" class="community-map"></div>
+
+          <!-- Map Loading Indicator -->
+          <div id="map-loading" class="map-overlay-loading hidden">
+            <div class="spinner"></div>
+            <span>Updating interactive map markers...</span>
+          </div>
+
+          <!-- Map Error State -->
+          <div id="map-error-notice" class="map-error-banner hidden">
+            <svg class="icon-small text-amber" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span id="map-error-text">Map tiles took too long to load. The community feed and report cards remain fully functional.</span>
+            <button id="btn-retry-map" class="btn-link">Retry Map</button>
+          </div>
+
+          <!-- Floating Map Quick Controls -->
+          <div class="map-floating-controls">
+            <button id="btn-center-india" class="btn-map-control" title="Fit map view to all displayed incident markers">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <span>Fit All Markers</span>
+            </button>
+          </div>
+
+          <!-- Active Marker Info Card (bottom banner on map) -->
+          <div id="map-active-report-banner" class="map-active-banner hidden">
+            <div class="active-banner-info">
+              <span id="active-banner-topic" class="badge badge-topic">Topic</span>
+              <strong id="active-banner-title">Report Title</strong>
+              <span id="active-banner-location" class="active-banner-meta">📍 Locality</span>
+            </div>
+            <div class="active-banner-actions">
+              <button id="btn-active-banner-view" class="btn btn-primary btn-xs">View Report</button>
+              <button id="btn-active-banner-close" class="btn-icon-subtle" title="Dismiss">&times;</button>
+            </div>
+          </div>
+
+        </section>
+
+      </div>
+    </div>
+
+    <!-- VIEW 3: Private Evidence Vault (Strictly session-isolated) -->
+    <div id="view-vault" class="app-view hidden">
+      <div class="vault-container">
+        
+        <div class="vault-header">
+          <div class="vault-title-group">
+            <div class="vault-badge-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </div>
+            <div>
+              <h2>Private Evidence Vault</h2>
+              <p class="vault-sub">Confidential record repository strictly private to your isolated session.</p>
+            </div>
+          </div>
+          <button id="btn-open-add-vault" class="btn btn-primary" title="Add a private record to your vault">
+            <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>Add Vault Record</span>
+          </button>
+        </div>
+
+        <!-- Privacy & Security Guarantee -->
+        <div class="vault-privacy-notice">
+          <div class="vault-notice-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <div class="vault-notice-text">
+            <strong>Strict Confidentiality Guarantee:</strong>
+            <p>Records stored in your Evidence Vault are isolated exclusively to your local session UUID. They are <u>never</u> exposed publicly, <u>never</u> displayed in the community feed, and <u>never</u> plotted on the public community map.</p>
+          </div>
+        </div>
+
+        <!-- Vault Items Grid -->
+        <div id="vault-items-list" class="vault-items-grid">
+          <!-- Dynamically populated vault items -->
+        </div>
+
+        <!-- Empty Vault State -->
+        <div id="vault-empty-state" class="empty-state-card hidden">
+          <div class="empty-icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+          <h4>Your Private Evidence Vault is Empty</h4>
+          <p>Safeguard demand notices, transaction receipts, call recordings notes, and chronology logs here. They remain private to you.</p>
+          <button id="btn-empty-add-vault" class="btn btn-secondary btn-sm mt-2">Add Your First Record</button>
+        </div>
+
+      </div>
+    </div>
+
+  </div> <!-- /app-layout -->
+
+  <!-- MODAL 1: Create Community Experience Report -->
+  <div id="modal-create-report" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-create-title">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 1 6"/>
+              <line x1="8" y1="2" x2="8" y2="18"/>
+              <line x1="16" y1="6" x2="16" y2="22"/>
+            </svg>
+          </div>
+          <div>
+            <h3 id="modal-create-title">Share Community Legal / Consumer Experience</h3>
+            <p class="modal-subtitle">Contribute an anonymous citizen experience or allegation to alert fellow citizens.</p>
+          </div>
+        </div>
+        <button id="btn-close-create-modal" class="btn-modal-close" title="Close modal">&times;</button>
+      </div>
+
+      <form id="form-create-report" class="modal-form">
+        <div class="form-grid">
+          
+          <!-- Report Title -->
+          <div class="form-group span-2">
+            <label for="input-report-title" class="form-label">Title / Summary <span class="required">*</span></label>
+            <input type="text" id="input-report-title" class="text-input" placeholder="e.g. Police Refusal to File Zero FIR for Mobile Theft" required minlength="3" maxlength="200">
+            <span class="field-hint">A concise summary of the dispute, allegation, or procedural hurdle.</span>
+          </div>
+
+          <!-- Category / Topic -->
+          <div class="form-group">
+            <label for="select-report-topic" class="form-label">Topic Category <span class="required">*</span></label>
+            <select id="select-report-topic" class="select-input" required>
+              <option value="" disabled selected>Select category...</option>
+              <option value="Consumer Dispute">Consumer Dispute (e-Daakhil, Defective Goods)</option>
+              <option value="Tenant & Landlord">Tenant & Landlord (Eviction, Deposit, TPA 106)</option>
+              <option value="Police & FIR">Police & FIR (Zero FIR, BNSS 173 Refusal)</option>
+              <option value="Cyber Fraud & Scams">Cyber Fraud & Scams (1930 Portal, UPI)</option>
+              <option value="RERA & Property">RERA & Property (Delayed Possession, Builder)</option>
+              <option value="Cheque Dishonour">Cheque Dishonour (S. 138 NI Act)</option>
+              <option value="Labour & Employment">Labour & Employment (Unpaid Salary, PF)</option>
+              <option value="Civic & Municipal">Civic & Municipal (RTI, Public Authority)</option>
+              <option value="Other">Other Legal Issue</option>
+            </select>
+          </div>
+
+          <!-- Incident Date -->
+          <div class="form-group">
+            <label for="input-incident-date" class="form-label">Approximate Incident Date</label>
+            <input type="date" id="input-incident-date" class="text-input">
+            <span class="field-hint">Optional: when the incident or notice occurred.</span>
+          </div>
+
+          <!-- Description Narrative -->
+          <div class="form-group span-2">
+            <label for="input-report-desc" class="form-label">Detailed Narrative & Experience <span class="required">*</span></label>
+            <textarea id="input-report-desc" class="textarea-input" rows="4" placeholder="Detail the timeline, notices served, authority responses, and actions you took..." required minlength="10"></textarea>
+            <span class="field-hint">Stick to factual steps and chronological events. Never include personal phone numbers or passwords.</span>
+          </div>
+
+          <!-- Location Attachment Section -->
+          <div class="form-group span-2 location-picker-section">
+            <div class="location-toggle-row">
+              <label class="checkbox-label font-medium">
+                <input type="checkbox" id="chk-include-location">
+                <span>📍 Attach approximate locality to community map</span>
+              </label>
+              <span class="badge badge-neutral">Optional</span>
+            </div>
+
+            <!-- Interactive Picker Panel -->
+            <div id="location-picker-panel" class="location-picker-panel hidden">
+              <div class="privacy-alert-box">
+                <svg class="icon-small text-emerald" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <span><strong>Privacy Shield:</strong> Search for a general neighborhood or city (e.g. <em>Indiranagar, Bengaluru</em>). Never enter personal flat/house numbers or exact private residences. GPS is not automatically queried.</span>
+              </div>
+
+              <!-- Search Locality Bar -->
+              <div class="locality-search-bar">
+                <input type="text" id="input-locality-search" class="text-input" placeholder="Search city, neighborhood, or district (e.g. Connaught Place, New Delhi)...">
+                <button type="button" id="btn-search-locality" class="btn btn-secondary btn-sm">
+                  <span>Search</span>
+                </button>
+              </div>
+
+              <div id="locality-search-results" class="locality-search-dropdown hidden"></div>
+
+              <!-- Mini Interactive Leaflet Map for Pin Dragging / Clicking -->
+              <div class="mini-map-container">
+                <div id="location-picker-map" class="location-picker-map"></div>
+                <div class="map-drag-hint">💡 Click anywhere on the map or drag the pin to set the approximate locality.</div>
+              </div>
+
+              <!-- Selected Coordinates and Locality Summary -->
+              <div class="selected-location-summary">
+                <div class="location-name-input-group">
+                  <label for="input-approx-location-name" class="form-label-small">Locality Label:</label>
+                  <input type="text" id="input-approx-location-name" class="text-input text-input-sm" placeholder="e.g. Pune, Maharashtra">
+                </div>
+                <div class="coords-display">
+                  <span id="badge-selected-coords" class="stat-tag">No pin selected</span>
+                  <button type="button" id="btn-remove-location" class="btn-link-danger btn-sm">Remove Pin</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Public Publication & Safety Consent -->
+          <div class="form-group span-2">
+            <div class="consent-box">
+              <label class="checkbox-label">
+                <input type="checkbox" id="chk-is-public" checked>
+                <span><strong>Publish publicly to community map & feed</strong> (Uncheck to save as private draft)</span>
+              </label>
+
+              <label class="checkbox-label mt-2">
+                <input type="checkbox" id="chk-integrity-confirm" required>
+                <span>I confirm this report describes a genuine experience and understand it will be labeled as a <strong>citizen allegation/experience</strong> rather than an established judicial finding.</span>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="btn-cancel-create-report" class="btn btn-secondary">Cancel</button>
+          <button type="submit" id="btn-submit-report" class="btn btn-primary">
+            <span>Publish Experience</span>
+            <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 
+  <!-- MODAL 2: Report Full Details & Legal Guidance -->
+  <div id="modal-report-detail" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-detail-title">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span id="detail-topic-badge" class="badge badge-topic">Topic</span>
+          <h3 id="modal-detail-title">Report Title</h3>
+        </div>
+        <button id="btn-close-detail-modal" class="btn-modal-close" title="Close">&times;</button>
+      </div>
+
+      <div class="modal-scrollable-body">
+        
+        <!-- Meta Details Bar -->
+        <div class="detail-meta-bar">
+          <div class="detail-meta-item">
+            <span class="meta-label">Approximate Locality:</span>
+            <span id="detail-location-text" class="meta-value">📍 Locality</span>
+          </div>
+          <div class="detail-meta-item">
+            <span class="meta-label">Incident Date:</span>
+            <span id="detail-date-text" class="meta-value">📅 Date</span>
+          </div>
+          <div class="detail-meta-item">
+            <span class="meta-label">Status:</span>
+            <span class="badge badge-success">Published Public Experience</span>
+          </div>
+        </div>
+
+        <!-- Allegation Safety Disclaimer Box -->
+        <div class="detail-disclaimer-box">
+          <div class="disclaimer-title">⚠️ Citizen Allegation / User-Submitted Report</div>
+          <p>
+            This community submission represents an individual citizen's personal experience or allegation. Jurista does not verify judicial claims or establish third-party liability. If you face a similar issue, refer to statutory remedies below or consult a licensed advocate.
+          </p>
+        </div>
+
+        <!-- Full Narrative Content -->
+        <div class="detail-narrative-section">
+          <h4>Narrative of Experience</h4>
+          <div id="detail-narrative-content" class="detail-narrative-text"></div>
+        </div>
+
+        <!-- Applicable Indian Law & Procedural Roadmap -->
+        <div id="detail-legal-roadmap" class="detail-roadmap-section">
+          <div class="roadmap-header">
+            <svg class="icon-medium text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+              <path d="M6 6h10"/>
+              <path d="M6 10h10"/>
+            </svg>
+            <h4>Applicable Statutory Guidance & Remedies (India Code)</h4>
+          </div>
+          <div id="detail-roadmap-content" class="roadmap-content">
+            <!-- Dynamic statutory citations injected by JS based on topic -->
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="btn-detail-show-map" class="btn btn-secondary">
+          <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+            <line x1="8" y1="2" x2="8" y2="18"/>
+            <line x1="16" y1="6" x2="16" y2="22"/>
+          </svg>
+          <span>Center on Map</span>
+        </button>
+        <button type="button" id="btn-detail-ask-ai" class="btn btn-primary">
+          <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span>Consult Jurista AI on this Issue</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: Add Private Evidence Vault Item -->
+  <div id="modal-add-vault" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-vault-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+          <div>
+            <h3 id="modal-vault-title">Add Private Evidence Record</h3>
+            <p class="modal-subtitle">Confidential to your session. Never shared on the public map.</p>
+          </div>
+        </div>
+        <button id="btn-close-vault-modal" class="btn-modal-close" title="Close">&times;</button>
+      </div>
+
+      <form id="form-add-vault" class="modal-form">
+        <div class="form-group">
+          <label for="input-vault-title" class="form-label">Record Title <span class="required">*</span></label>
+          <input type="text" id="input-vault-title" class="text-input" placeholder="e.g. S. 138 Bounced Cheque Counterfoil & Notice Copy" required minlength="2">
+        </div>
+
+        <div class="form-group">
+          <label for="select-vault-type" class="form-label">Record Type <span class="required">*</span></label>
+          <select id="select-vault-type" class="select-input" required>
+            <option value="Legal Notice">Legal Demand Notice</option>
+            <option value="Police Receipt">Police / FIR Acknowledgement</option>
+            <option value="Payment Receipt">Bank Transaction / UPI Receipt</option>
+            <option value="Contract Agreement">Registered Lease / Agreement</option>
+            <option value="Correspondence">Email / WhatsApp Export</option>
+            <option value="Personal Note">Chronological Incident Notes</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="input-vault-desc" class="form-label">Private Notes & Details</label>
+          <textarea id="input-vault-desc" class="textarea-input" rows="3" placeholder="Key dates, reference tracking numbers, CNR numbers, or confidential points..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="input-vault-loc" class="form-label">Private Location Reference (Optional)</label>
+          <input type="text" id="input-vault-loc" class="text-input" placeholder="e.g. Pune Police Commissioner Office">
+          <span class="field-hint">Stored strictly for your personal reference. NEVER plotted on the community map.</span>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="btn-cancel-vault" class="btn btn-secondary">Cancel</button>
+          <button type="submit" id="btn-submit-vault" class="btn btn-primary">Save to Private Vault</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Leaflet & MarkerCluster JS Dependencies -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <!-- App Core JS -->
   <script src="/static/app.js"></script>
 </body>
 </html>

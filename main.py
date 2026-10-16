@@ -17,7 +17,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,6 +27,7 @@ from pdf_parser import extract_text_from_pdf
 from rag_engine import chunk_document_text
 from graph import process_jurista_turn
 from legal_db import search_legal_sources, format_legal_sources_for_prompt
+from community_store import CommunityStore, EvidenceVaultStore
 import prompts
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -63,6 +64,48 @@ class LanguageSwitchRequest(BaseModel):
 
 class ClearSessionRequest(BaseModel):
     session_id: str
+
+
+class CommunityReportCreate(BaseModel):
+    title: str = Field(..., min_length=3, max_length=200, description="Brief descriptive summary of the incident/allegation")
+    topic: str = Field(..., min_length=2, max_length=100, description="Legal/consumer topic category")
+    description: str = Field(..., min_length=10, max_length=10000, description="Full factual narrative of the experience")
+    approx_location_name: Optional[str] = Field(default=None, max_length=200, description="City, locality, or landmark (no exact house addresses)")
+    latitude: Optional[float] = Field(default=None, description="Approximate latitude")
+    longitude: Optional[float] = Field(default=None, description="Approximate longitude")
+    incident_date: Optional[str] = Field(default=None, description="Approximate date of incident (YYYY-MM-DD)")
+    is_public: bool = Field(default=True, description="Whether this report appears on the public map & feed")
+    session_id: Optional[str] = Field(default=None, description="Author session identifier")
+
+    @field_validator("latitude")
+    @classmethod
+    def validate_lat(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and not (-90.0 <= v <= 90.0):
+            raise ValueError("Latitude must be between -90 and 90 degrees.")
+        return v
+
+    @field_validator("longitude")
+    @classmethod
+    def validate_lon(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and not (-180.0 <= v <= 180.0):
+            raise ValueError("Longitude must be between -180 and 180 degrees.")
+        return v
+
+    @model_validator(mode="after")
+    def validate_coordinate_pair(self):
+        lat = self.latitude
+        lon = self.longitude
+        if (lat is None and lon is not None) or (lat is not None and lon is None):
+            raise ValueError("Both latitude and longitude must be provided together for a map location.")
+        return self
+
+
+class VaultItemCreate(BaseModel):
+    session_id: str = Field(..., description="Target session UUID")
+    title: str = Field(..., min_length=2, max_length=200, description="Evidence title or document reference")
+    item_type: str = Field(..., description="Type of evidence: Notice, Receipt, Recording, Chat Log, Agreement")
+    description: Optional[str] = Field(default=None, description="Private notes or description")
+    approx_location: Optional[str] = Field(default=None, description="Private incident location note")
 
 
 # -------------------------------------------------------------
@@ -294,6 +337,135 @@ async def upload_pdf(
         "chunk_count": len(chunks),
         "explanation": explanation,
         "message": parse_result["message"]
+    }
+
+
+# -------------------------------------------------------------
+# Community Experiences & Interactive Map Endpoints
+# -------------------------------------------------------------
+
+@app.get("/api/community/reports")
+def get_community_reports(
+    topic: Optional[str] = None,
+    search: Optional[str] = None,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    has_location_only: bool = False,
+    limit: int = 100
+):
+    """
+    Fetch published public community reports for feed and interactive map.
+    Server-side safety guarantee:
+    - Excludes private drafts and unpublished items
+    - Never exposes private Evidence Vault records
+    - Clearly labels all reports as citizen-submitted allegations
+    """
+    reports = CommunityStore.get_public_reports(
+        topic=topic,
+        search=search,
+        from_date=from_date,
+        to_date=to_date,
+        has_location_only=has_location_only,
+        limit=limit
+    )
+    return {
+        "success": True,
+        "count": len(reports),
+        "allegation_notice": "Community reports reflect user-submitted experiences and allegations. They do not constitute official judicial findings or verified wrongdoing.",
+        "reports": reports
+    }
+
+
+@app.get("/api/community/reports/{report_id}")
+def get_single_community_report(report_id: str, session_id: Optional[str] = None):
+    """Retrieve full details of a specific published public report."""
+    report = CommunityStore.get_report_by_id(report_id, requester_session_id=session_id)
+    if not report:
+        raise HTTPException(
+            status_code=404,
+            detail="Report not found or not permitted to appear publicly."
+        )
+    return {
+        "success": True,
+        "report": report
+    }
+
+
+@app.post("/api/community/reports")
+def create_community_report(req: CommunityReportCreate):
+    """
+    Publish a new community experience or allegation.
+    - Validates approximate coordinates if provided (lat -90..90, lon -180..180)
+    - Coordinates are stored as approximate values for map pin rendering
+    - Allows reports without location (published without map marker)
+    - If is_public=False, saved as private draft and excluded from public map & feed
+    """
+    report = CommunityStore.create_report(
+        title=req.title,
+        topic=req.topic,
+        description=req.description,
+        approx_location_name=req.approx_location_name,
+        latitude=req.latitude,
+        longitude=req.longitude,
+        incident_date=req.incident_date,
+        status="published" if req.is_public else "draft",
+        is_public=req.is_public,
+        author_session_id=req.session_id or "anonymous"
+    )
+    return {
+        "success": True,
+        "report": report,
+        "message": "Experience report submitted successfully." if req.is_public else "Saved as private draft."
+    }
+
+
+# -------------------------------------------------------------
+# Private Evidence Vault Endpoints
+# (Strictly isolated per session; NEVER queryable on public map)
+# -------------------------------------------------------------
+
+@app.get("/api/vault/items")
+def get_vault_items(session_id: str):
+    """Retrieve private evidence items strictly isolated to the caller's session."""
+    if not session_id or not session_id.strip():
+        raise HTTPException(status_code=400, detail="session_id parameter is required.")
+    items = EvidenceVaultStore.get_vault_items(session_id.strip())
+    return {
+        "success": True,
+        "session_id": session_id,
+        "count": len(items),
+        "items": items
+    }
+
+
+@app.post("/api/vault/items")
+def add_vault_item(req: VaultItemCreate):
+    """Add a confidential document reference or private record note to session vault."""
+    item = EvidenceVaultStore.create_vault_item(
+        session_id=req.session_id,
+        title=req.title,
+        item_type=req.item_type,
+        description=req.description,
+        approx_location=req.approx_location
+    )
+    return {
+        "success": True,
+        "item": item,
+        "message": "Evidence item saved to your private vault."
+    }
+
+
+@app.delete("/api/vault/items/{item_id}")
+def delete_vault_item(item_id: str, session_id: str):
+    """Delete a private evidence vault item belonging to the session."""
+    if not session_id or not session_id.strip():
+        raise HTTPException(status_code=400, detail="session_id parameter is required.")
+    deleted = EvidenceVaultStore.delete_vault_item(session_id=session_id.strip(), item_id=item_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Vault item not found or unauthorized.")
+    return {
+        "success": True,
+        "message": "Vault item removed."
     }
 
 

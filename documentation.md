@@ -364,20 +364,75 @@ python test_system.py
 
 ---
 
-## 8. Ethical Guardrails, Compliance & Disclaimers
+---
 
-### 8.1. Bar Council of India Compliance
+## 8. Community Experiences Interactive Map & Evidence Vault
+
+### 8.1. Overview & Architecture
+The **Community Experiences** module empowers citizens to share and explore real-world legal and consumer disputes across India (such as e-commerce refund refusals, landlord deposit withholding, police Zero FIR refusals, and RERA builder delays). It is integrated directly into Jurista's core application with strict privacy and legal-ethics boundaries.
+
+```mermaid
+flowchart TD
+    subgraph Client UI
+        Nav[Primary Navigation Tabs] --> ViewChat[AI Assistant & PDF Explainer]
+        Nav --> ViewMap[Community Map & Feed]
+        Nav --> ViewVault[Private Evidence Vault]
+    end
+
+    subgraph Community Experiences Engine
+        ViewMap --> Feed[Feed List & Filter Bar]
+        ViewMap --> LeafletMap[Leaflet.js + OSM Tiles]
+        LeafletMap --> Cluster[Leaflet.markercluster]
+        ViewMap --> ReportModal[Create Report & Locality Picker]
+    end
+
+    subgraph Server & Database - jurista_sessions.db
+        FastAPI_Routes[FastAPI Endpoints - main.py]
+        FastAPI_Routes --> PubFilter{Public & Published Filter}
+        PubFilter -->|is_public=1| CommTable[(community_reports Table)]
+        FastAPI_Routes --> VaultFilter{Session UUID Isolation}
+        VaultFilter -->|Private Session Only| VaultTable[(evidence_vault Table)]
+    end
+```
+
+### 8.2. Interactive Mapping Specifications
+* **Mapping Framework:** Built with **Leaflet.js (v1.9.4)** using **OpenStreetMap (OSM)** standard tiles. Adheres strictly to tile usage policies with attribution: `&copy; OpenStreetMap contributors`.
+* **Zero Paid Dependencies:** Fully operational without Google Maps API keys or external paid mapping SDKs.
+* **Marker Clustering:** Employs **Leaflet.markercluster** to group nearby incidents in dense urban centers (e.g., Delhi NCR, Mumbai, Bengaluru, Pune, Hyderabad), expanding dynamically upon click or zoom.
+* **Map & Feed Synchronization:**
+  * Clicking a report card in the feed centers the map (`flyTo`), zooms in, triggers the marker's popup, and highlights the active card.
+  * Clicking a map marker opens an informative popup containing the report title, topic category badge, approximate locality, incident date, narrative excerpt, and an "Open Full Report" button.
+* **Layout Switcher:** Users can toggle between **Split View (Side-by-Side Map & Feed)**, **Map Only**, and **Feed Only**, with automatic responsive stacking on mobile devices.
+* **Dynamic Multi-Criteria Filters:** Filter markers and feed cards synchronously by Topic/Category (Consumer Dispute, Police & FIR, Tenant & Landlord, Cyber Fraud, RERA, Cheque Bounce), Date Range (30 days, 90 days, 1 year, All time), Keyword Search, and a "Mapped Only" toggle.
+
+### 8.3. Location Privacy & Safety Guardrails
+* **No Precision GPS Required:** The application **never** queries or forces device GPS tracking, eliminating privacy intrusion.
+* **Approximate Locality Selection:** Users select a general city, neighborhood, or district via OpenStreetMap Nominatim geocoding or by clicking/dragging a pin on the mini picker map.
+* **Privacy Truncation:** Coordinates are rounded to 4 decimal places (~11m approximate area). Exact house numbers, flat numbers, and personal residential addresses are strictly forbidden and warned against by a persistent Privacy Shield notice.
+* **Unmapped Publication Support:** Citizens can publish reports without any location attached. These reports appear in the public feed without a map pin.
+* **Integrity & Allegation Disclaimers:** All public reports and marker popups feature prominent labels indicating they are **user-submitted citizen allegations**, not verified judicial findings or court judgments. Clustering indicates report frequency in a locality, not established guilt.
+
+### 8.4. Strict Evidence Vault Isolation
+* User evidence records (such as demand notice copies, payment receipts, private notes, and FIR acknowledgments) are stored in the **Private Evidence Vault** table (`evidence_vault`).
+* Vault records are **strictly isolated to the user's session UUID**.
+* Vault items and any private location notes **never appear in the public community reports feed and are never plotted on the public community map**.
+
+---
+
+## 9. Ethical Guardrails, Compliance & Disclaimers
+
+### 9.1. Bar Council of India Compliance
 Under the Advocates Act, 1961 and the Bar Council of India Rules, legal solicitation and automated provision of legal representation are strictly regulated. Jurista adheres to the following principles:
 * **Legal Information vs. Legal Advice:** Jurista explicitly identifies itself as an informational guide and research assistant. It does not create an attorney-client relationship.
 * **Persistent Disclaimers:** Every generated output carries prominent notices stating that legal situations vary by jurisdiction and that users should consult a qualified advocate or their local Legal Services Authority (DLSA/SLSA).
 
-### 8.2. Allegation Protection
+### 9.2. Allegation Protection
 Legal demand notices, FIR complaints, and eviction notices represent unilateral claims by opposing parties. Jurista's prompts are explicitly instructed to:
 * Avoid accepting statements in user-uploaded documents as proven facts.
 * Use neutral, cautious language (e.g., *"The notice claims..."*, *"The document alleges..."*).
 * Prevent unwarranted alarm or panic by clarifying that notices are preliminary claims requiring an objective legal response.
 
-### 8.3. Citizen Rights & Free Legal Aid
+### 9.3. Citizen Rights & Free Legal Aid
 Jurista proactively informs eligible citizens (such as economically weaker sections, women, children, and undertrial prisoners) about their statutory entitlement to free legal aid under Section 12 of the Legal Services Authorities Act, 1987, referencing the national **NALSA helpline: 15100**.
 
 ---
