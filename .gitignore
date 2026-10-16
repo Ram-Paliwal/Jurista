@@ -39,7 +39,7 @@ jurista_sessions.db-journal
 
 # Secrets & Environment variables (CRITICAL: Do NOT commit your API key!)
 .env.local
-
+.env
 # IDEs & Editors
 .vscode/
 .idea/

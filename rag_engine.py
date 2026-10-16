@@ -8,7 +8,7 @@ strictly separated from legal statutory retrieval.
 from __future__ import annotations
 import math
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 DEFAULT_CHUNK_SIZE = 750
 DEFAULT_CHUNK_OVERLAP = 120
@@ -21,11 +21,21 @@ def clean_text_for_tokens(text: str) -> List[str]:
 def chunk_document_text(
     full_text: str,
     chunk_size: int = DEFAULT_CHUNK_SIZE,
-    chunk_overlap: int = DEFAULT_CHUNK_OVERLAP
+    chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
+    source_metadata: Optional[Dict[str, Any]] = None
 ) -> List[Dict[str, Any]]:
     """
     Split document text into structured overlapping chunks, preserving paragraph structure.
     Extracts page markers (e.g. '--- [Page X] ---') if present.
+
+    Args:
+        full_text:        The raw document text to split.
+        chunk_size:       Target character size per chunk.
+        chunk_overlap:    Characters of overlap between consecutive chunks.
+        source_metadata:  Optional dict with provenance keys (act, section,
+                          official_url).  When provided every generated chunk
+                          will carry these fields so that citations can be
+                          rendered correctly even after vector retrieval.
     """
     if not full_text or not full_text.strip():
         return []
@@ -72,12 +82,17 @@ def chunk_document_text(
                     current_buffer = para
             else:
                 if current_buffer:
-                    chunks.append({
+                    chunk_entry: Dict[str, Any] = {
                         "chunk_id": chunk_id,
                         "page": page_num,
                         "text": current_buffer,
                         "tokens": clean_text_for_tokens(current_buffer)
-                    })
+                    }
+                    if source_metadata:
+                        chunk_entry["act"] = str(source_metadata.get("act") or "")
+                        chunk_entry["section"] = str(source_metadata.get("section") or "")
+                        chunk_entry["official_url"] = str(source_metadata.get("official_url") or "")
+                    chunks.append(chunk_entry)
                     chunk_id += 1
                     # Keep overlap from the end of current buffer
                     overlap_text = current_buffer[-chunk_overlap:] if len(current_buffer) > chunk_overlap else ""
@@ -91,24 +106,34 @@ def chunk_document_text(
                             sent_buffer = (sent_buffer + " " + sent).strip()
                         else:
                             if sent_buffer:
-                                chunks.append({
+                                sent_entry: Dict[str, Any] = {
                                     "chunk_id": chunk_id,
                                     "page": page_num,
                                     "text": sent_buffer,
                                     "tokens": clean_text_for_tokens(sent_buffer)
-                                })
+                                }
+                                if source_metadata:
+                                    sent_entry["act"] = str(source_metadata.get("act") or "")
+                                    sent_entry["section"] = str(source_metadata.get("section") or "")
+                                    sent_entry["official_url"] = str(source_metadata.get("official_url") or "")
+                                chunks.append(sent_entry)
                                 chunk_id += 1
                             sent_buffer = sent
                     if sent_buffer:
                         current_buffer = sent_buffer
 
         if current_buffer:
-            chunks.append({
+            tail_entry: Dict[str, Any] = {
                 "chunk_id": chunk_id,
                 "page": page_num,
                 "text": current_buffer,
                 "tokens": clean_text_for_tokens(current_buffer)
-            })
+            }
+            if source_metadata:
+                tail_entry["act"] = str(source_metadata.get("act") or "")
+                tail_entry["section"] = str(source_metadata.get("section") or "")
+                tail_entry["official_url"] = str(source_metadata.get("official_url") or "")
+            chunks.append(tail_entry)
             chunk_id += 1
 
     return chunks
@@ -177,14 +202,26 @@ def retrieve_document_chunks(
 
 
 def format_document_chunks(chunks: List[Dict[str, Any]]) -> str:
-    """Format retrieved document chunks for prompt injection."""
+    """Format retrieved document chunks for prompt injection.
+
+    If a chunk carries source metadata (act, section, official_url) those
+    are included in the header line so the LLM can cite them correctly.
+    """
     if not chunks:
         return "No specific document uploaded or no relevant document chunks retrieved."
 
     formatted = []
     for c in chunks:
-        formatted.append(
-            f"[Document Excerpt — Page {c.get('page', 'Unknown')}, Chunk #{c.get('chunk_id', 1)}]:\n"
-            f'"{c.get("text", "").strip()}"'
-        )
+        act = c.get("act", "").strip()
+        section = c.get("section", "").strip()
+        url = c.get("official_url", "").strip()
+
+        header = f"[Document Excerpt — Page {c.get('page', 'Unknown')}, Chunk #{c.get('chunk_id', 1)}"
+        if act or section:
+            header += f" | Source: {act}" + (f", {section}" if section else "")
+        if url:
+            header += f" | {url}"
+        header += "]:"
+
+        formatted.append(f"{header}\n\"{c.get('text', '').strip()}\"")
     return "\n\n".join(formatted)

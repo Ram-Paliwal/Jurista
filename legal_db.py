@@ -42,11 +42,20 @@ _INDIANKANOON_SEARCH_URL = "https://api.indiankanoon.org/search/"
 _API_TIMEOUT_SECONDS = 6  # keep latency acceptable; fallback on timeout
 
 # ---------------------------------------------------------------------------
+# BM25 relevance threshold — tune this value to tighten / relax filtering.
+# Results with a score below this threshold are discarded rather than returned
+# as low-quality matches.  Raise it to be more selective; lower it to surface
+# more statutes at the cost of relevance.
+# ---------------------------------------------------------------------------
+MINIMUM_RELEVANCE_SCORE: int = 8
+
+# ---------------------------------------------------------------------------
 # Curated statutory database with official India Code references (FALLBACK)
 # ---------------------------------------------------------------------------
 LEGAL_STATUTES: List[Dict[str, Any]] = [
     {
         "id": "ni_act_138",
+        "domain": "criminal",
         "act": "Negotiable Instruments Act, 1881",
         "section": "Section 138",
         "title": "Dishonour of Cheque for Insufficiency of Funds",
@@ -57,6 +66,7 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     },
     {
         "id": "ni_act_141",
+        "domain": "criminal",
         "act": "Negotiable Instruments Act, 1881",
         "section": "Section 141",
         "title": "Offences by Companies",
@@ -67,6 +77,7 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     },
     {
         "id": "cpa_2019_deficiency",
+        "domain": "consumer",
         "act": "Consumer Protection Act, 2019",
         "section": "Section 2(11) & Section 35",
         "title": "Deficiency in Goods or Services & Complaint Filing",
@@ -77,6 +88,7 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     },
     {
         "id": "bnss_173_fir",
+        "domain": "procedure",
         "act": "Bharatiya Nagarik Suraksha Sanhita, 2023 / CrPC 154",
         "section": "BNSS Section 173 (CrPC Section 154)",
         "title": "Information in Cognizable Cases (FIR Registration)",
@@ -87,6 +99,7 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     },
     {
         "id": "bnss_35_arrest",
+        "domain": "procedure",
         "act": "Bharatiya Nagarik Suraksha Sanhita, 2023 / CrPC 41A",
         "section": "BNSS Section 35 (CrPC Section 41A)",
         "title": "Notice of Appearance Before Police Officer",
@@ -97,6 +110,7 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     },
     {
         "id": "bns_cheating_318",
+        "domain": "criminal",
         "act": "Bharatiya Nyaya Sanhita, 2023 / IPC 420",
         "section": "BNS Section 318 (IPC Section 420)",
         "title": "Cheating and Dishonestly Inducing Delivery of Property",
@@ -107,6 +121,7 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     },
     {
         "id": "it_act_66d",
+        "domain": "cyber",
         "act": "Information Technology Act, 2000",
         "section": "Section 66D & 43",
         "title": "Cheating by Personation Using Computer Resource & Cyber Fraud",
@@ -117,6 +132,7 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     },
     {
         "id": "tpa_106_lease",
+        "domain": "tenancy",
         "act": "Transfer of Property Act, 1882",
         "section": "Section 106 & Section 108",
         "title": "Duration of Leases & Notice to Terminate Tenancy",
@@ -127,6 +143,7 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     },
     {
         "id": "pwdva_2005",
+        "domain": "family",
         "act": "Protection of Women from Domestic Violence Act, 2005",
         "section": "Section 12, 18 & 19",
         "title": "Application to Magistrate, Protection Orders & Right to Reside",
@@ -137,6 +154,7 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     },
     {
         "id": "rera_2016_18",
+        "domain": "property",
         "act": "Real Estate (Regulation and Development) Act, 2016",
         "section": "Section 18 & Section 31",
         "title": "Return of Amount and Compensation for Delayed Builder Possession",
@@ -147,6 +165,7 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     },
     {
         "id": "rti_act_2005_6",
+        "domain": "procedure",
         "act": "Right to Information Act, 2005",
         "section": "Section 6 & Section 7",
         "title": "Request for Obtaining Information & Time Limits",
@@ -157,6 +176,7 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     },
     {
         "id": "nalsa_legal_aid_1987",
+        "domain": "legal_aid",
         "act": "Legal Services Authorities Act, 1987",
         "section": "Section 12",
         "title": "Criteria for Giving Free Legal Services",
@@ -167,6 +187,7 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     },
     {
         "id": "ecourts_tracking",
+        "domain": "procedure",
         "act": "eCourts Services & Case Tracking Framework",
         "section": "CNR Number Verification",
         "title": "Official Court Case Status Tracking",
@@ -220,6 +241,7 @@ def _normalise_indiankanoon_doc(doc: Dict[str, Any]) -> Dict[str, Any]:
         "title": title,
         "official_url": official_url,
         "keywords": [],          # live results; keywords not pre-indexed
+        "domain": "general",      # Indian Kanoon results carry no domain metadata
         "summary": headline or title,
         "procedure": (
             f"Refer to the full document at {official_url} for complete "
@@ -276,10 +298,102 @@ def _search_indiankanoon(query: str, top_k: int) -> Optional[List[Dict[str, Any]
 # BM25-style fallback -- local hardcoded database
 # ---------------------------------------------------------------------------
 
-def _search_local_bm25(query: str, top_k: int) -> List[Dict[str, Any]]:
+# Keyword → domain mapping used by classify_query_domain.
+# Each list entry is matched as a substring of the lowercased query so that
+# multi-word phrases (e.g. "domestic violence") work without tokenisation.
+_DOMAIN_KEYWORDS: Dict[str, List[str]] = {
+    "tenancy": [
+        "tenant", "landlord", "rent", "eviction", "deposit",
+        "security deposit", "lease", "flat rent", "notice period",
+        "leave and license",
+    ],
+    "criminal": [
+        "fir", "police", "arrest", "cheque", "fraud", "cheating",
+        "bail", "complaint", "cognizable",
+    ],
+    "consumer": [
+        "consumer", "refund", "warranty", "defective", "product",
+        "service", "e-commerce", "airline", "medical negligence",
+    ],
+    "cyber": [
+        "cyber", "online fraud", "upi", "phishing", "hacking",
+        "credit card", "1930", "cybercrime",
+    ],
+    "property": [
+        "builder", "rera", "possession", "flat", "homebuyer",
+        "allotment", "apartment",
+    ],
+    "family": [
+        "domestic violence", "divorce", "maintenance", "dowry",
+        "cruelty", "custody", "wife", "husband",
+    ],
+    "procedure": [
+        "rti", "information", "court", "fir", "magistrate",
+        "case status", "cnr", "ecourts",
+    ],
+    "legal_aid": [
+        "free lawyer", "legal aid", "nalsa", "dlsa",
+        "cannot afford", "15100",
+    ],
+}
+
+# Score threshold that lets a very high-confidence BM25 hit bypass the
+# domain gate entirely (= MINIMUM_RELEVANCE_SCORE * 2).
+_DOMAIN_OVERRIDE_SCORE: int = MINIMUM_RELEVANCE_SCORE * 2
+
+
+def classify_query_domain(query: str) -> List[str]:
     """
-    Search the curated LEGAL_STATUTES using keyword and term overlap scoring.
-    This is the original search logic, preserved intact as the silent fallback.
+    Classify a natural-language legal query into one or more domain labels.
+
+    Iterates over ``_DOMAIN_KEYWORDS`` and checks whether any keyword for a
+    domain appears as a substring of the lowercased query.  A query may match
+    multiple domains; all matched domains are returned so that the caller can
+    apply a union filter rather than forcing a single category.
+
+    Args:
+        query: The user's natural-language legal query.
+
+    Returns:
+        A list of matched domain strings (e.g. ``["criminal", "procedure"]``).
+        Returns ``["general"]`` when no domain keyword matches, signalling that
+        no domain filter should be applied.
+    """
+    q_lower = query.lower()
+    matched: List[str] = [
+        domain
+        for domain, keywords in _DOMAIN_KEYWORDS.items()
+        if any(kw in q_lower for kw in keywords)
+    ]
+    return matched if matched else ["general"]
+
+
+def _search_local_bm25(
+    query: str,
+    top_k: int,
+    min_score: int = MINIMUM_RELEVANCE_SCORE,
+) -> List[Dict[str, Any]]:
+    """
+    Search the curated LEGAL_STATUTES using keyword and term overlap scoring,
+    with an optional domain pre-filter derived from ``classify_query_domain``.
+
+    Filtering logic
+    ---------------
+    1. Score every statute with the BM25-style keyword scorer.
+    2. Discard any result whose score is below ``min_score``.
+    3. Classify the query into matched domains via ``classify_query_domain``.
+    4. If the query matches specific domains (not ``["general"]``):
+       - Keep a result if its ``domain`` field is in the matched domains, OR
+       - Keep it unconditionally if its score exceeds ``_DOMAIN_OVERRIDE_SCORE``
+         (``MINIMUM_RELEVANCE_SCORE * 2``), treating very high BM25 confidence
+         as a reliable signal that overrides the domain gate.
+    5. If the query is ``["general"]`` (no domain matched), no domain filter
+       is applied — only the score threshold governs inclusion.
+
+    Args:
+        query:     The user's natural-language legal query.
+        top_k:     Maximum number of results to return.
+        min_score: Per-call score floor; defaults to ``MINIMUM_RELEVANCE_SCORE``.
     """
     tokens = set(re.findall(r"\w+", query.lower()))
     scored_results = []
@@ -305,10 +419,26 @@ def _search_local_bm25(query: str, top_k: int) -> List[Dict[str, Any]]:
         sum_tokens = set(re.findall(r"\w+", item["summary"].lower()))
         score += len(tokens.intersection(sum_tokens)) * 1
 
-        if score > 0:
+        if score >= min_score:  # discard anything below the relevance threshold
             scored_results.append((score, item))
 
-    # Sort descending by score
+    # --- Domain filtering ---------------------------------------------------
+    matched_domains = classify_query_domain(query)
+    if matched_domains != ["general"]:
+        domain_set = set(matched_domains)
+        scored_results = [
+            (score, item)
+            for score, item in scored_results
+            if item["domain"] in domain_set          # domain matches, OR
+            or score >= _DOMAIN_OVERRIDE_SCORE       # very high BM25 confidence
+        ]
+        logger.debug(
+            "Domain filter applied: %s — %d result(s) remain.",
+            matched_domains,
+            len(scored_results),
+        )
+
+    # Sort descending by score; return empty list if nothing clears the bar
     scored_results.sort(key=lambda x: x[0], reverse=True)
     return [item for _, item in scored_results[:top_k]]
 
@@ -321,13 +451,18 @@ def search_legal_sources(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
     """
     Search Indian legal sources for the most relevant statutory references.
 
-    Strategy (primary then fallback):
-    1. Indian Kanoon API -- live case law and statute search using
-       INDIANKANOON_API_KEY from the environment.  Results are normalised to
-       the same dict schema as the hardcoded database.
-    2. Local hardcoded BM25 -- curated LEGAL_STATUTES with keyword scoring.
-       Activated silently when the API key is absent, the API is unreachable,
-       returns a non-200 status, or returns an empty result set.
+    Strategy (domain-aware, two-path):
+
+    Path A — known domain (classify_query_domain returns something other than
+    ``["general"]``):
+      1. Local BM25 over curated LEGAL_STATUTES (preferred — corpus is curated
+         and domain-tagged, so precision is high for matching entries).
+      2. Indian Kanoon API as fallback if BM25 returns no results (handles
+         queries that fall outside the hardcoded statute set).
+
+    Path B — general / unclassified query (classify_query_domain → ``["general"]``):
+      1. Indian Kanoon API (live, broad coverage).
+      2. Local BM25 if the API is unavailable or returns nothing.
 
     Args:
         query:  The user's natural-language legal query.
@@ -336,19 +471,49 @@ def search_legal_sources(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
     Returns:
         List of up to ``top_k`` dicts, each with keys:
         ``id``, ``act``, ``section``, ``title``, ``official_url``,
-        ``keywords``, ``summary``, ``procedure``.
+        ``keywords``, ``summary``, ``procedure``, ``domain``.
         Returns an empty list for blank queries.
     """
     if not query or not query.strip():
         return []
 
-    # --- Primary: Indian Kanoon API ---
-    api_results = _search_indiankanoon(query, top_k)
-    if api_results is not None:
-        return api_results
+    matched_domains = classify_query_domain(query)
 
-    # --- Fallback: local BM25 over hardcoded statutes ---
-    return _search_local_bm25(query, top_k)
+    if matched_domains != ["general"]:
+        # ------------------------------------------------------------------
+        # Path A: known domain — local BM25 only, no Indian Kanoon fallback.
+        # Rationale: Indian Kanoon has no domain awareness; if our curated
+        # corpus has no match for a known domain it signals a database gap,
+        # not that IK will produce more relevant results.
+        # ------------------------------------------------------------------
+        bm25_results = _search_local_bm25(query, top_k)
+        if bm25_results:
+            logger.debug(
+                "Domain-specific query %r: returning %d local BM25 result(s) "
+                "(domains: %s).",
+                query,
+                len(bm25_results),
+                matched_domains,
+            )
+            return bm25_results
+
+        logger.debug(
+            "Domain-specific query %r: local BM25 empty (domains: %s) — "
+            "no Indian Kanoon fallback for known domains.",
+            query,
+            matched_domains,
+        )
+        return []
+
+    else:
+        # ------------------------------------------------------------------
+        # Path B: general query — prefer Indian Kanoon, fall back to BM25
+        # ------------------------------------------------------------------
+        api_results = _search_indiankanoon(query, top_k)
+        if api_results is not None:
+            return api_results
+
+        return _search_local_bm25(query, top_k)
 
 
 def format_legal_sources_for_prompt(sources: List[Dict[str, Any]]) -> str:

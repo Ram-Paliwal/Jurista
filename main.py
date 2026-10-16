@@ -214,7 +214,22 @@ async def chat_endpoint(req: ChatRequest):
 
     assistant_text = pipeline_res["response"]
     intent = pipeline_res["intent"]
-    sources = pipeline_res.get("retrieved_legal_sources", [])
+    raw_sources = pipeline_res.get("retrieved_legal_sources", [])
+
+    # Normalise source dicts before sending to the frontend.
+    # Guarantee every field the frontend reads is a non-None string so that
+    # rendering code never sees `undefined` and never produces a broken URL.
+    def _normalise_source(s: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "id":           str(s.get("id") or ""),
+            "act":          str(s.get("act") or ""),
+            "section":      str(s.get("section") or ""),
+            "title":        str(s.get("title") or ""),
+            "official_url": str(s.get("official_url") or s.get("url") or ""),
+            "summary":      str(s.get("summary") or ""),
+        }
+
+    sources = [_normalise_source(s) for s in raw_sources]
 
     # 4. Record assistant response in session history
     SessionStore.add_message(

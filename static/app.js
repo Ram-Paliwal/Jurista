@@ -580,12 +580,23 @@
         <div class="sources-pill-box">
           <span class="sources-pill-label">Verified Authorities:</span>
           <div class="sources-pills-list">
-            ${meta.sources.map(s => `
-              <a href="${s.url}" target="_blank" rel="noopener" class="source-citation-chip" title="${escapeHtml(s.key_takeaway || s.title)}">
-                <span>§ ${escapeHtml(s.section)} (${escapeHtml(s.act)})</span>
-                <span class="chip-arrow">&nearr;</span>
-              </a>
-            `).join("")}
+            ${meta.sources.map(s => {
+              // Normalise: backend uses 'official_url'; older snapshots may use 'url'.
+              const href = (s.official_url || s.url || "").trim();
+              const label = `§ ${escapeHtml(s.section || "")} (${escapeHtml(s.act || "")})`;
+              const tipText = escapeHtml(s.key_takeaway || s.title || "");
+              if (href) {
+                return `<a href="${href}" target="_blank" rel="noopener" class="source-citation-chip" title="${tipText}">
+                  <span>${label}</span>
+                  <span class="chip-arrow">&nearr;</span>
+                </a>`;
+              }
+              // No URL available — render as plain non-linked chip so the citation
+              // is still visible without producing a broken href.
+              return `<span class="source-citation-chip source-citation-no-link" title="${tipText}">
+                <span>${label}</span>
+              </span>`;
+            }).join("")}
           </div>
         </div>
       `;

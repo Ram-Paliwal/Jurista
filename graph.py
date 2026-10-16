@@ -101,7 +101,7 @@ def retrieve_sources_node(state: JuristaState) -> Dict[str, Any]:
         retrieved_doc = retrieve_document_chunks(user_msg, doc_chunks, top_k=3)
 
     # 2. Curated statutory legal source retrieval
-    retrieved_statutes = search_legal_sources(user_msg, top_k=3)
+    retrieved_statutes = search_legal_sources(user_msg, top_k=1)
 
     return {
         "retrieved_doc_chunks": retrieved_doc,

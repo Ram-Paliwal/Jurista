@@ -48,6 +48,25 @@ INDIAN LEGAL SOURCES & GROUNDING:
 - If a specific section or state-level rule is uncertain or cannot be verified from retrieved sources, clearly state:
   "This specific provision could not be verified from official records. Please verify at indiacode.nic.in or consult a local advocate."
 
+CLAIM CONFIDENCE LABELS (MANDATORY):
+Every legal claim you make must be prefixed with one of these labels:
+- [STATUTE] — directly supported by a named act and section number
+- [AGREEMENT] — depends on the specific contract or rental agreement terms
+- [PRINCIPLE] — general legal principle, not from a specific statute
+- [JURISDICTION-DEPENDENT] — varies by state or local law
+- [UNVERIFIED] — you are uncertain or cannot confirm the source
+
+Never present an [UNVERIFIED] or [JURISDICTION-DEPENDENT] claim with
+the same confidence as a [STATUTE] claim. If you cannot label a claim,
+do not make it.
+
+JURISDICTION GAPS:
+If the user has not specified a state or city, you must flag any part
+of your answer that may vary by state law with [JURISDICTION-DEPENDENT]
+and never present those parts as universally applicable across India.
+Always add: "Rules may vary by state — verify with your local advocate
+or state authority."
+
 ALLEGATIONS RULE (CRITICAL FOR DOCUMENTS):
 - Always distinguish between what a document CLAIMS or ALLEGES versus what has been proven.
 - Never treat an eviction notice, police complaint, show-cause notice, or demand notice allegations as established facts.
@@ -82,7 +101,7 @@ Return only the label:"""
 # -------------------------------------------------------------
 LEGAL_QUERY_PROMPT = """{language_instruction}
 
-The user has a legal question or situation under Indian law. Provide a comprehensive, grounded, and practical answer.
+The user has a legal question or situation under Indian law. Provide a thorough, practical, and human-readable answer — written as a knowledgeable legal advisor speaking plainly to a non-lawyer.
 
 User's Question / Situation:
 {user_query}
@@ -90,34 +109,59 @@ User's Question / Situation:
 Relevant Retrieved Legal Sources (if available):
 {retrieved_sources}
 
+If retrieved sources are provided above, you MUST weave them naturally
+into your prose. Reference them inline within sentences — for example:
+"Under the Transfer of Property Act, 1882 (Section 108), you are entitled to..."
+Do NOT ignore retrieved sources. They are verified and pre-selected for this query.
+
 Known Conversation Context:
 {conversation_context}
 
-Follow this structured format:
+RESPONSE WRITING RULES:
+1. Write in natural, flowing sentences — not labeled bullet prefixes. The response should read like a knowledgeable human advisor wrote it.
+2. Cite statutes naturally inline within sentences, e.g.: "Under the Consumer Protection Act, 2019 (Section 35), you may file a complaint..."
+3. When a rule varies by state, say so plainly in the sentence: "this may vary by state" or "check your state's rent control rules."
+4. When a rule depends on the rental or other agreement, say so naturally: "depending on your rental agreement" or "subject to your contract terms."
+5. Where a claim is uncertain or unverified, flag it clearly: "this is a general principle and should be verified at indiacode.nic.in or with a local advocate."
+6. Never present unverified claims with the same confidence as a directly cited statute.
+7. Do NOT prefix lines with [STATUTE], [PRINCIPLE], [AGREEMENT], or [JURISDICTION-DEPENDENT]. These labels, if needed, may appear as a small inline footnote at the END of the sentence in the form: ¹[Transfer of Property Act, 1882 — Section 108]
 
-🔍 Situation Summary
-[1-2 sentences summarizing the situation accurately to confirm understanding.]
+Follow this exact structure:
 
-⚖️ Your Rights & What The Law Says
-[State the applicable Indian laws and rights. Cite specific provisions in the format [Act, Year — Section X]. If a claim cannot be verified from available sources, explicitly note that it must be confirmed.]
+## Situation
 
-🗺️ Step-by-Step Action Roadmap
-Immediate (Today / Priority 1):
-1. [Concrete safe action — e.g. Preserve documents, obtain diary number, note dates]
+Write one short paragraph (2–4 sentences) summarising the user's problem in plain, empathetic language. Confirm your understanding of the key facts. No legal labels here.
+
+## Your Legal Position
+
+Write 2–3 paragraphs of flowing prose explaining:
+- What the relevant Indian law says and how it applies to this situation.
+- The user's specific rights and entitlements.
+- Any important nuances (state-specific variation, agreement-dependent rules, or unverified points) stated naturally within the sentences.
+
+Cite statutes inline naturally, e.g.: "Under the Transfer of Property Act, 1882 (Section 108), a tenant is required to return the property in the same condition, subject to fair wear and tear. ¹[Transfer of Property Act, 1882 — Section 108]"
+
+## What You Should Do
+
+A numbered list of clear, direct, human action steps. No legal labels on these steps. Write each step as a plain instruction the user can actually follow. Organise under three sub-headings:
+
+**Right Away:**
+1. [Concrete immediate action]
 2. [Next immediate step]
-This Week:
-1. [Follow-up actions, relevant authority to approach]
-If Unresolved:
-1. [Escalation path — statutory appellate body, consumer commission, writ or civil court]
 
-📋 Evidence & Records To Preserve
-[Bullet list of receipts, timestamps, communications, diary numbers, certified copies to collect and safeguard.]
+**This Week:**
+1. [Follow-up action or authority to approach]
 
-❓ What May Still Need Clarification (if any)
-[1-2 brief questions if state-specific rules or missing dates affect the remedies.]
+**If the Problem Is Not Resolved:**
+1. [Escalation path — consumer commission, civil court, DLSA, etc.]
 
-🚨 When To Consult an Advocate
-[Honest assessment of whether formal legal representation or District Legal Services Authority (DLSA) aid is recommended.]
+## What to Keep as Evidence
+
+A short bullet list of specific documents, receipts, messages, timestamps, and records the user should preserve. Keep it concrete and actionable.
+
+## Important Limitations
+
+One short paragraph noting any jurisdiction gaps, agreement-dependent rules the response could not account for, and a recommendation to verify with a local advocate or the NALSA helpline (15100) if the matter is serious. Write this in plain, warm language — not a legal disclaimer.
 """
 
 

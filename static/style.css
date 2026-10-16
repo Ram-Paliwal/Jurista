@@ -642,7 +642,34 @@ body {
   color: white;
 }
 
-/* Quick Topic Chips */
+/* Citation chips rendered by appendAssistantMessage */
+.source-citation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  background: rgba(6, 182, 212, 0.12);
+  color: #67E8F9;
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+a.source-citation-chip:hover {
+  background: rgba(6, 182, 212, 0.28);
+  color: white;
+}
+
+/* Plain-text citation chip when no URL is available */
+.source-citation-no-link {
+  opacity: 0.75;
+  cursor: default;
+  border-style: dashed;
+}
+
+
 .quick-chips-wrapper {
   padding: 0.5rem 2rem;
   display: flex;
