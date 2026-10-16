@@ -253,6 +253,14 @@
                 </svg>
               </button>
 
+              <button type="button" id="btn-mic" class="btn-icon-secondary" title="Voice Input (Speak in English, Hindi, or Marathi)" aria-label="Voice Input">
+                <svg class="icon-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+              </button>
+
               <button type="submit" id="btn-send" class="btn btn-primary" title="Send message">
                 <span>Send</span>
                 <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -262,6 +270,16 @@
               </button>
             </div>
           </form>
+          
+          <!-- Voice Recording Status Indicator -->
+          <div id="voice-indicator" class="voice-indicator hidden">
+            <div class="voice-indicator-content">
+              <span class="voice-pulse-dot"></span>
+              <span id="voice-status-text">Listening... Speak now</span>
+            </div>
+            <button type="button" id="btn-stop-voice" class="btn-voice-stop" title="Stop listening">Stop</button>
+          </div>
+
           <div class="input-footer">
             <span>Jurista provides informational guidance only and is not a substitute for an advocate's advice.</span>
           </div>

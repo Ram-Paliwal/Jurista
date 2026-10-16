@@ -18,12 +18,33 @@
   let activeDocument = null;
   let isProcessing = false;
 
+  // Web Speech API Configuration & State
+  const LANGUAGE_LOCALES = {
+    "English": "en-IN",
+    "Hindi": "hi-IN",
+    "Marathi": "mr-IN"
+  };
+
+  const LANGUAGE_DISPLAY = {
+    "English": "English (en-IN)",
+    "Hindi": "Hindi (हिंदी, hi-IN)",
+    "Marathi": "Marathi (मराठी, mr-IN)"
+  };
+
+  let recognition = null;
+  let isRecording = false;
+  let recognitionBaseText = "";
+
   // DOM Elements
   const chatMessagesEl = document.getElementById("chat-messages");
   const chatFormEl = document.getElementById("chat-form");
   const userInputEl = document.getElementById("user-input");
   const btnSendEl = document.getElementById("btn-send");
   const btnAttachEl = document.getElementById("btn-attach");
+  const btnMicEl = document.getElementById("btn-mic");
+  const voiceIndicatorEl = document.getElementById("voice-indicator");
+  const voiceStatusTextEl = document.getElementById("voice-status-text");
+  const btnStopVoiceEl = document.getElementById("btn-stop-voice");
   const langSelectEl = document.getElementById("lang-select");
   const btnNewSessionEl = document.getElementById("btn-new-session");
 
@@ -50,6 +71,9 @@
   // -------------------------------------------------------------
   function init() {
     langSelectEl.value = currentLanguage;
+    if (btnMicEl) {
+      btnMicEl.title = `Voice Input (${LANGUAGE_DISPLAY[currentLanguage] || currentLanguage})`;
+    }
     loadSession();
     bindEvents();
     autoResizeTextarea();
@@ -77,6 +101,14 @@
 
     // New Session
     btnNewSessionEl.addEventListener("click", handleNewSession);
+
+    // Multilingual Voice Input
+    if (btnMicEl) {
+      btnMicEl.addEventListener("click", toggleVoiceRecognition);
+    }
+    if (btnStopVoiceEl) {
+      btnStopVoiceEl.addEventListener("click", stopVoiceRecognition);
+    }
 
     // File Attachment & Drag/Drop
     btnAttachEl.addEventListener("click", () => fileInputEl.click());
@@ -170,6 +202,14 @@
     currentLanguage = newLang;
     localStorage.setItem("jurista_language", newLang);
 
+    // Stop active voice session so next voice input uses updated language locale
+    if (isRecording) {
+      stopVoiceRecognition();
+    }
+    if (btnMicEl) {
+      btnMicEl.title = `Voice Input (${LANGUAGE_DISPLAY[currentLanguage] || currentLanguage})`;
+    }
+
     try {
       await fetch("/api/session/language", {
         method: "POST",
@@ -192,6 +232,8 @@
     if (!confirm("Are you sure you want to start a new session? This will clear current chat history and document context.")) {
       return;
     }
+
+    stopVoiceRecognition();
 
     try {
       await fetch("/api/session/clear", {
@@ -347,6 +389,11 @@
     e.preventDefault();
     if (isProcessing) return;
 
+    // Stop active speech recognition cleanly before sending
+    if (isRecording) {
+      stopVoiceRecognition();
+    }
+
     const message = userInputEl.value.trim();
     if (!message) return;
 
@@ -396,6 +443,127 @@
       btnSendEl.disabled = false;
       userInputEl.focus();
     }
+  }
+
+  // -------------------------------------------------------------
+  // Multilingual Voice Input (Web Speech API)
+  // Supports English (en-IN), Hindi (hi-IN), and Marathi (mr-IN)
+  // -------------------------------------------------------------
+  function isSpeechRecognitionSupported() {
+    return Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+  }
+
+  function toggleVoiceRecognition() {
+    if (isRecording) {
+      stopVoiceRecognition();
+    } else {
+      startVoiceRecognition();
+    }
+  }
+
+  function startVoiceRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert(
+        "Voice input is not supported in this browser.\n\nPlease use Google Chrome, Microsoft Edge, or another browser with Web Speech API support."
+      );
+      return;
+    }
+
+    // Guard against duplicate active recognition sessions
+    if (isRecording && recognition) {
+      stopVoiceRecognition();
+    }
+
+    try {
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      // Map current application language to recognition locale
+      const activeLocale = LANGUAGE_LOCALES[currentLanguage] || "en-IN";
+      recognition.lang = activeLocale;
+
+      // Preserve any existing text the user already typed
+      recognitionBaseText = userInputEl.value;
+
+      recognition.onstart = () => {
+        isRecording = true;
+        btnMicEl.classList.add("recording");
+        btnMicEl.title = "Listening... Click microphone or Stop button to finish";
+        btnMicEl.setAttribute("aria-label", "Recording voice input, click to stop");
+        
+        voiceIndicatorEl.classList.remove("hidden");
+        const langLabel = LANGUAGE_DISPLAY[currentLanguage] || currentLanguage;
+        voiceStatusTextEl.textContent = `Listening in ${langLabel}... Speak now`;
+      };
+
+      recognition.onresult = (event) => {
+        let interimTranscript = "";
+        let finalTranscript = "";
+
+        for (let i = 0; i < event.results.length; ++i) {
+          const item = event.results[i];
+          if (item.isFinal) {
+            finalTranscript += item[0].transcript;
+          } else {
+            interimTranscript += item[0].transcript;
+          }
+        }
+
+        const recognizedText = (finalTranscript + " " + interimTranscript).trim();
+        if (recognizedText) {
+          const prefix = recognitionBaseText.trim();
+          userInputEl.value = prefix ? `${prefix} ${recognizedText}` : recognizedText;
+          autoResizeTextarea();
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn("[Voice Recognition]", event.error);
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          alert("Microphone permission was denied.\n\nPlease allow microphone access in your browser settings to speak your legal question.");
+        } else if (event.error === "no-speech") {
+          // Normal timeout when no speech is detected; silently reset without crashing
+        } else if (event.error === "network") {
+          alert("Network error occurred during speech recognition. Please check your internet connection.");
+        } else if (event.error !== "aborted") {
+          console.error("Speech recognition error:", event.error);
+        }
+        stopVoiceRecognition();
+      };
+
+      recognition.onend = () => {
+        stopVoiceRecognition();
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.error("Failed to start speech recognition:", err);
+      stopVoiceRecognition();
+    }
+  }
+
+  function stopVoiceRecognition() {
+    if (recognition) {
+      try {
+        recognition.stop();
+      } catch (e) {
+        // Safe ignore
+      }
+      recognition = null;
+    }
+    isRecording = false;
+    if (btnMicEl) {
+      btnMicEl.classList.remove("recording");
+      btnMicEl.title = `Voice Input (${LANGUAGE_DISPLAY[currentLanguage] || currentLanguage})`;
+      btnMicEl.setAttribute("aria-label", "Voice Input");
+    }
+    if (voiceIndicatorEl) {
+      voiceIndicatorEl.classList.add("hidden");
+    }
+    userInputEl.focus();
   }
 
   // -------------------------------------------------------------
