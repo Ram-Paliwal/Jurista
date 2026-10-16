@@ -1,14 +1,49 @@
 """
 Jurista Indian Legal Knowledge Base & Source Retriever.
-Curated, verified provisions from official Indian statutes (India Code, eCourts, NALSA).
+
+Architecture: Primary / Fallback
+---------------------------------
+1. PRIMARY — Indian Kanoon API (https://api.indiankanoon.org)
+   Queries live case law and statutory text via INDIANKANOON_API_KEY from .env.
+   Returns top-k results normalised to the same dict schema used by the
+   hardcoded database so that no other module requires any changes.
+
+2. FALLBACK — Curated hardcoded statutory database (BM25 keyword scoring)
+   Used automatically when:
+     • INDIANKANOON_API_KEY is absent or empty.
+     • The Indian Kanoon API is unreachable (network error, timeout, 5xx).
+     • The API returns an empty result set.
+   Falls back silently — callers never observe any difference in return type.
+
+Curated provisions are sourced from official Indian repositories:
+India Code (indiacode.nic.in), eCourts (services.ecourts.gov.in), NALSA (nalsa.gov.in).
 Never hallucinate section numbers or citations.
 """
 
 from __future__ import annotations
-import re
-from typing import List, Dict, Any
 
-# Curated statutory database with official India Code references
+import logging
+import os
+import re
+from typing import Any, Dict, List, Optional
+
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Indian Kanoon API configuration
+# ---------------------------------------------------------------------------
+_INDIANKANOON_API_KEY: Optional[str] = os.environ.get("INDIANKANOON_API_KEY", "").strip() or None
+_INDIANKANOON_SEARCH_URL = "https://api.indiankanoon.org/search/"
+_API_TIMEOUT_SECONDS = 6  # keep latency acceptable; fallback on timeout
+
+# ---------------------------------------------------------------------------
+# Curated statutory database with official India Code references (FALLBACK)
+# ---------------------------------------------------------------------------
 LEGAL_STATUTES: List[Dict[str, Any]] = [
     {
         "id": "ni_act_138",
@@ -142,14 +177,110 @@ LEGAL_STATUTES: List[Dict[str, Any]] = [
     }
 ]
 
-def search_legal_sources(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
-    """
-    Search curated Indian legal knowledge base using keyword and term overlap.
-    Returns the most relevant statutory references with official citations and links.
-    """
-    if not query or not query.strip():
-        return []
 
+# ---------------------------------------------------------------------------
+# Indian Kanoon API — primary retrieval
+# ---------------------------------------------------------------------------
+
+def _normalise_indiankanoon_doc(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert a single Indian Kanoon search result dict into the same schema
+    used by the hardcoded LEGAL_STATUTES entries so that callers require
+    zero changes.
+
+    Indian Kanoon search result fields (typical):
+        tid         -- document ID (integer)
+        title       -- document title / case name
+        headline    -- short text excerpt / holding
+        doctype     -- "judgments" | "acts" | etc.
+        publishdate -- date string
+        court       -- court name (for judgments)
+    """
+    tid = str(doc.get("tid", ""))
+    title = str(doc.get("title", "")).strip()
+    headline = str(doc.get("headline", "")).strip()
+    doctype = str(doc.get("doctype", "")).strip()
+    court = str(doc.get("court", "")).strip()
+    publish_date = str(doc.get("publishdate", "")).strip()
+
+    # Build a sensible act/section label from available metadata.
+    if doctype.lower() == "acts":
+        act_label = title
+        section_label = "Indian Kanoon -- Acts"
+    else:
+        act_label = court or "Indian Kanoon"
+        section_label = publish_date or doctype or "Judgment"
+
+    official_url = f"https://indiankanoon.org/doc/{tid}/" if tid else "https://indiankanoon.org/"
+
+    return {
+        "id": f"ik_{tid}",
+        "act": act_label,
+        "section": section_label,
+        "title": title,
+        "official_url": official_url,
+        "keywords": [],          # live results; keywords not pre-indexed
+        "summary": headline or title,
+        "procedure": (
+            f"Refer to the full document at {official_url} for complete "
+            "procedural details and citations."
+        ),
+    }
+
+
+def _search_indiankanoon(query: str, top_k: int) -> Optional[List[Dict[str, Any]]]:
+    """
+    Call the Indian Kanoon Search API and return normalised results.
+
+    Returns:
+        A non-empty list of normalised dicts on success.
+        None if the API key is missing, the call fails, or results are empty.
+        Failures are logged at DEBUG level so production logs stay clean.
+    """
+    if not _INDIANKANOON_API_KEY:
+        return None
+
+    try:
+        response = requests.post(
+            _INDIANKANOON_SEARCH_URL,
+            data={"formInput": query, "pagenum": 0},
+            headers={
+                "Authorization": f"Token {_INDIANKANOON_API_KEY}",
+                "Accept": "application/json",
+            },
+            timeout=_API_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except requests.exceptions.Timeout:
+        logger.debug("Indian Kanoon API timed out for query %r -- using fallback.", query)
+        return None
+    except requests.exceptions.RequestException as exc:
+        logger.debug("Indian Kanoon API request failed: %s -- using fallback.", exc)
+        return None
+    except ValueError:
+        logger.debug("Indian Kanoon API returned non-JSON response -- using fallback.")
+        return None
+
+    docs: List[Dict[str, Any]] = payload.get("docs", [])
+    if not docs:
+        logger.debug("Indian Kanoon API returned empty results for query %r -- using fallback.", query)
+        return None
+
+    results = [_normalise_indiankanoon_doc(d) for d in docs[:top_k]]
+    logger.debug("Indian Kanoon API returned %d result(s) for query %r.", len(results), query)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# BM25-style fallback -- local hardcoded database
+# ---------------------------------------------------------------------------
+
+def _search_local_bm25(query: str, top_k: int) -> List[Dict[str, Any]]:
+    """
+    Search the curated LEGAL_STATUTES using keyword and term overlap scoring.
+    This is the original search logic, preserved intact as the silent fallback.
+    """
     tokens = set(re.findall(r"\w+", query.lower()))
     scored_results = []
 
@@ -182,6 +313,44 @@ def search_legal_sources(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
     return [item for _, item in scored_results[:top_k]]
 
 
+# ---------------------------------------------------------------------------
+# Public API -- return signature unchanged; no other file needs modification
+# ---------------------------------------------------------------------------
+
+def search_legal_sources(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+    """
+    Search Indian legal sources for the most relevant statutory references.
+
+    Strategy (primary then fallback):
+    1. Indian Kanoon API -- live case law and statute search using
+       INDIANKANOON_API_KEY from the environment.  Results are normalised to
+       the same dict schema as the hardcoded database.
+    2. Local hardcoded BM25 -- curated LEGAL_STATUTES with keyword scoring.
+       Activated silently when the API key is absent, the API is unreachable,
+       returns a non-200 status, or returns an empty result set.
+
+    Args:
+        query:  The user's natural-language legal query.
+        top_k:  Maximum number of results to return (default: 3).
+
+    Returns:
+        List of up to ``top_k`` dicts, each with keys:
+        ``id``, ``act``, ``section``, ``title``, ``official_url``,
+        ``keywords``, ``summary``, ``procedure``.
+        Returns an empty list for blank queries.
+    """
+    if not query or not query.strip():
+        return []
+
+    # --- Primary: Indian Kanoon API ---
+    api_results = _search_indiankanoon(query, top_k)
+    if api_results is not None:
+        return api_results
+
+    # --- Fallback: local BM25 over hardcoded statutes ---
+    return _search_local_bm25(query, top_k)
+
+
 def format_legal_sources_for_prompt(sources: List[Dict[str, Any]]) -> str:
     """Format retrieved legal provisions as authoritative grounding text for LLM prompts."""
     if not sources:
@@ -190,7 +359,7 @@ def format_legal_sources_for_prompt(sources: List[Dict[str, Any]]) -> str:
     formatted_parts = []
     for s in sources:
         formatted_parts.append(
-            f"• Source: [{s['act']} — {s['section']}]\n"
+            f"* Source: [{s['act']} -- {s['section']}]\n"
             f"  Title: {s['title']}\n"
             f"  Official Portal: {s['official_url']}\n"
             f"  Statutory Rule: {s['summary']}\n"
