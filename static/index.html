@@ -6,8 +6,7 @@
   <title>Jurista — AI Indian Legal Assistant & Community Experiences</title>
   <meta name="description" content="Accessible, grounded Indian legal information, PDF explainer, interactive community experience map, and private evidence vault.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <!-- Leaflet & MarkerCluster CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -24,17 +23,10 @@
     <header class="app-header">
       <div class="brand-group">
         <div class="brand-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
-            <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
-            <path d="M7 21h10"/>
-            <path d="M12 3v18"/>
-            <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
-          </svg>
+          <img src="/static/jurista_logo.png" alt="Jurista Logo" style="width:36px;height:36px;object-fit:contain;">
         </div>
         <div class="brand-text">
           <h1 class="brand-title">Jurista</h1>
-          <span class="brand-badge">India Law AI</span>
         </div>
       </div>
 
@@ -44,7 +36,7 @@
           <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
-          <span>Legal Assistant & PDF</span>
+          <span>Assistant</span>
         </button>
 
         <button id="nav-btn-community" class="nav-tab-btn" data-target="view-community">
@@ -53,7 +45,7 @@
             <line x1="8" y1="2" x2="8" y2="18"/>
             <line x1="16" y1="6" x2="16" y2="22"/>
           </svg>
-          <span>Community Map & Feed</span>
+          <span>Community</span>
           <span class="tab-badge-live">Live</span>
         </button>
 
@@ -62,16 +54,10 @@
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
-          <span>Evidence Vault</span>
+          <span>Vault</span>
           <span class="tab-badge-private">Private</span>
         </button>
       </nav>
-
-      <!-- Scope Notice Banner -->
-      <div class="header-disclaimer">
-        <span class="pulse-dot"></span>
-        <span>Information only &bull; India Code & NALSA grounded</span>
-      </div>
 
       <!-- Controls -->
       <div class="header-controls">
@@ -140,7 +126,6 @@
                   </svg>
                 </div>
                 <p class="dropzone-text"><strong>Drag & drop legal PDF</strong> or browse</p>
-                <p class="dropzone-sub">Notices, FIRs, Rent Agreements, Orders (Max 15 MB)</p>
               </div>
               <!-- Uploading spinner -->
               <div id="upload-loader" class="upload-loader hidden">
@@ -181,7 +166,6 @@
                 <h3>Official Indian Sources</h3>
               </div>
             </div>
-            <p class="sources-intro">All legal assertions cite verified authorities:</p>
             <ul class="official-links-list">
               <li>
                 <a href="https://www.indiacode.nic.in" target="_blank" rel="noopener">
@@ -224,12 +208,7 @@
             <!-- Initial Welcome Card -->
             <div class="message-card message-jurista intro-message">
               <div class="message-avatar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
-                  <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
-                  <path d="M7 21h10"/>
-                  <path d="M12 3v18"/>
-                </svg>
+                <img src="/static/jurista_logo.png" alt="Jurista" style="width:32px;height:32px;object-fit:contain;">
               </div>
               <div class="message-body">
                 <div class="message-header-row">
@@ -239,11 +218,7 @@
                 <div class="message-text">
                   <p>Welcome! I am <strong>Jurista</strong>, your AI companion for Indian law and legal document review.</p>
                   <p>You can ask questions about your legal rights and procedures, or upload a legal PDF (such as a notice, agreement, or FIR) for an objective breakdown.</p>
-                  <div class="rules-highlight">
-                    <div class="rule-item">⚖️ <strong>Grounded in Indian Law:</strong> Strictly verified against India Code, BNS/IPC, BNSS/CrPC, and special acts.</div>
-                    <div class="rule-item">⚠️ <strong>Allegations vs Facts:</strong> A document's claims are never treated as proven facts.</div>
-                    <div class="rule-item">🌐 <strong>Multilingual:</strong> Chat in English, Hindi (हिंदी), or Marathi (मराठी) without losing context.</div>
-                  </div>
+                  <p class="welcome-note">⚖️ Grounded in India Code · ⚠️ Allegations ≠ Facts · 🌐 EN / हिंदी / मराठी</p>
                 </div>
               </div>
             </div>
@@ -251,7 +226,6 @@
 
           <!-- Quick Topic Chips -->
           <div class="quick-chips-wrapper">
-            <span class="chips-label">Try asking:</span>
             <div class="chips-scroller">
               <button class="chip-btn" data-query="I received a legal notice under Section 138 of the Negotiable Instruments Act for a bounced cheque. What are my rights and deadline to respond?">
                 Cheque Bounce (S. 138 NI Act)

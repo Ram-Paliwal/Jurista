@@ -15,6 +15,51 @@
   "use strict";
 
   // -------------------------------------------------------------
+  // Dark Mode Theme Management
+  // Reads "jurista-theme" from localStorage and applies data-theme
+  // to <html>. Responds to both system preference and explicit toggle.
+  // -------------------------------------------------------------
+  (function initTheme() {
+    const saved = localStorage.getItem("jurista-theme");
+    if (saved === "dark") {
+      document.documentElement.setAttribute("data-theme", "dark");
+    } else if (saved === "light") {
+      document.documentElement.removeAttribute("data-theme");
+    }
+    // If no saved preference, CSS @media prefers-color-scheme handles it
+  })();
+
+  function toggleDarkMode() {
+    const html = document.documentElement;
+    const isDark = html.getAttribute("data-theme") === "dark";
+    if (isDark) {
+      html.removeAttribute("data-theme");
+      localStorage.setItem("jurista-theme", "light");
+    } else {
+      html.setAttribute("data-theme", "dark");
+      localStorage.setItem("jurista-theme", "dark");
+    }
+  }
+
+  // Wire up dark mode toggle: Alt+D keyboard shortcut
+  document.addEventListener("keydown", function (e) {
+    if (e.altKey && e.key === "d") {
+      e.preventDefault();
+      toggleDarkMode();
+    }
+  });
+
+  // Also double-click the brand icon to toggle (accessible click target)
+  document.addEventListener("DOMContentLoaded", function () {
+    const brandIcon = document.querySelector(".brand-icon");
+    if (brandIcon) {
+      brandIcon.style.cursor = "pointer";
+      brandIcon.title = "Double-click to toggle dark/light mode (or press Alt+D)";
+      brandIcon.addEventListener("dblclick", toggleDarkMode);
+    }
+  });
+
+  // -------------------------------------------------------------
   // Application State
   // -------------------------------------------------------------
   let sessionId = localStorage.getItem("jurista_session_id");
@@ -614,12 +659,7 @@
 
     card.innerHTML = `
       <div class="message-avatar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
-          <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
-          <path d="M7 21h10"/>
-          <path d="M12 3v18"/>
-        </svg>
+        <img src="/static/jurista_logo.png" alt="Jurista" style="width:32px;height:32px;object-fit:contain;">
       </div>
       <div class="message-body">
         <div class="message-header-row">
