@@ -1,7 +1,7 @@
 <div align="center">
 
 # ⚖️ Jurista
-### AI-Powered Indian Legal Assistant & Legal Document Explainer
+### AI-Powered Indian Legal Assistant & Public Empowerment Tool
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
